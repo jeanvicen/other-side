@@ -229,9 +229,9 @@ class Sound{
     this.comp.connect(this.master);
     this.mus=c.createGain();this.mus.gain.value=this.musicOn?0.9:0;
     this.mus.connect(this.comp);
-    this.drums=c.createGain();this.drums.gain.value=1.1;this.drums.connect(this.comp);
+    this.drums=c.createGain();this.drums.gain.value=0.82;this.drums.connect(this.comp);
     this.bass=c.createGain();this.bass.gain.value=1.0;this.bass.connect(this.comp);
-    this.guit=c.createGain();this.guit.gain.value=0.7;this.guit.connect(this.comp);
+    this.guit=c.createGain();this.guit.gain.value=1.0;this.guit.connect(this.comp);
     this.sfxG=c.createGain();this.sfxG.gain.value=0.9;this.sfxG.connect(this.master);
     this.ok=true;this.nextT=c.currentTime+0.15;
   }
@@ -240,9 +240,9 @@ class Sound{
     try{localStorage.setItem('os_music',v?'1':'0');}catch(e){}
     if(this.ok){
       this.mus.gain.setTargetAtTime(v?0.9:0,this.ctx.currentTime,0.15);
-      this.drums.gain.setTargetAtTime(v?1.1:0,this.ctx.currentTime,0.15);
+      this.drums.gain.setTargetAtTime(v?0.82:0,this.ctx.currentTime,0.15);
       this.bass.gain.setTargetAtTime(v?1.0:0,this.ctx.currentTime,0.15);
-      this.guit.gain.setTargetAtTime(v?0.7:0,this.ctx.currentTime,0.15);
+      this.guit.gain.setTargetAtTime(v?1.0:0,this.ctx.currentTime,0.15);
     }
   }
   setIntense(v){this.intense=v;}
@@ -277,8 +277,9 @@ class Sound{
     if(s%16===0){
       const chordProg=[[82.41,123.47],[65.41,98.00],[98.00,146.83],[73.42,110.00]];
       const chord=chordProg[this.bar%4];
-      this.powerChord(chord,t,this.intense?0.5:0.7);
+      this.powerChord(chord,t,this.intense?0.55:0.78);
     }
+    if(s%4===2)this.riffGuitar([110,123.47,146.83,164.81][(this.bar+s/16|0)%4],t,this.intense?0.12:0.09);
     if(this.intense&&s%8===6&&Math.random()<0.3){
       const lead=[329.63,392.00,440.00,493.88,587.33];
       this.leadGuitar(lead[(Math.random()*lead.length)|0],t);
@@ -381,6 +382,15 @@ class Sound{
       o1.start(t);o2.start(t);o1.stop(t+dur+0.05);o2.stop(t+dur+0.05);
     }
   }
+  riffGuitar(f,t,dur){
+    const c=this.ctx,o=c.createOscillator(),g=c.createGain(),dist=c.createWaveShaper(),flt=c.createBiquadFilter();
+    const curve=new Float32Array(256);
+    for(let i=0;i<256;i++){const x=i/128-1;curve[i]=Math.tanh(x*8);}
+    o.type='sawtooth';o.frequency.value=f*2;dist.curve=curve;
+    flt.type='bandpass';flt.frequency.value=1800;flt.Q.value=1.8;
+    g.gain.setValueAtTime(0.001,t);g.gain.linearRampToValueAtTime(0.16,t+0.008);g.gain.exponentialRampToValueAtTime(0.001,t+dur);
+    o.connect(dist);dist.connect(flt);flt.connect(g);g.connect(this.guit);o.start(t);o.stop(t+dur+0.03);
+  }
   leadGuitar(f,t){
     const c=this.ctx;
     const o=c.createOscillator(),o2=c.createOscillator();
@@ -463,6 +473,19 @@ class Sound{
     this.tone(180,0.5,{type:'sawtooth',v:0.2,slide:40});
     this.tone(90,0.8,{type:'sine',v:0.2,slide:30});
     [880,660,440,220].forEach((f,i)=>this.tone(f,0.3,{type:'square',v:0.08,at:i*0.15}));
+  }
+  bridgeBreakS(){
+    this.tone(125,0.7,{type:'sawtooth',v:0.22,slide:36});
+    this.tone(76,1.1,{type:'sine',v:0.22,slide:28,at:0.12});
+    [1500,980,620,340].forEach((f,i)=>this.tone(f,0.07,{type:'triangle',v:0.075,at:i*0.12}));
+    for(let i=0;i<5;i++)this.tone(700+Math.random()*700,0.04,{type:'square',v:0.045,at:0.22+i*0.08});
+  }
+  doorCreakS(){
+    this.tone(180,0.55,{type:'sawtooth',v:0.055,slide:110});
+    this.tone(920,0.11,{type:'triangle',v:0.035,at:0.18,slide:540});
+  }
+  voiceMurmurS(){
+    [180,220,260].forEach((f,i)=>this.tone(f,0.18,{type:'sawtooth',v:0.018,at:i*0.055,slide:f*0.92}));
   }
   checkpointS(){[523,659,784].forEach((f,i)=>this.tone(f,0.2,{type:'sine',v:0.08,at:i*0.12}));}
 }
@@ -977,16 +1000,40 @@ class Map2{
   }
   drawBridge(t){
     const g=ctx;
+    // Sombra profunda no abismo e cordas/estacas laterais.
+    g.fillStyle='#000000';g.globalAlpha=0.55;g.fillRect(630,128,4,24);g.fillRect(856,128,4,24);g.globalAlpha=1;
     g.fillStyle='#666677';g.fillRect(630,126,4,24);g.fillRect(856,126,4,24);
-    g.fillStyle='#8888aa';
-    g.fillRect(630,126,4,1);g.fillRect(856,126,4,1);
+    g.fillStyle='#aaaacc';g.fillRect(630,126,4,1);g.fillRect(856,126,4,1);
+    if(!this.bridgeDone){
+      g.fillStyle='#443322';
+      for(let rx=632;rx<858;rx+=34){
+        const sag=this.cracked?Math.sin(t*0.35+rx)*2:0;
+        g.fillRect(rx,132+sag,34,2);
+        g.fillRect(rx,145-sag,34,2);
+      }
+    }
     for(const p of this.planks){
       if(p.gone)continue;
       const x=p.tx*10;let y=150+p.oy;
-      if(this.cracked&&((t+p.tx*7)%40)<3)y+=1;
+      const shake=this.cracked?Math.sin(t*0.6+p.tx)*1.2:0;
+      y+=shake;
+      g.fillStyle='#332211';g.globalAlpha=0.5;g.fillRect(x+1,y+3,9,2);g.globalAlpha=1;
       g.fillStyle='#665544';g.fillRect(x,y,10,3);
-      g.fillStyle='#887766';g.fillRect(x,y,10,1);
+      g.fillStyle='#aa8870';g.fillRect(x,y,10,1);
       g.fillStyle='#221100';g.fillRect(x+9,y,1,3);
+      const h=hash(p.tx,44);
+      g.fillStyle='#3a2415';
+      if(h%3===0)g.fillRect(x+2,y+1,4,1);
+      if(h%5===0)g.fillRect(x+6,y+2,2,1);
+      if(this.cracked&&(h%4===0)){g.fillStyle='#18100b';g.fillRect(x+4,y,1,3);}
+    }
+    if(this.cracked){
+      g.fillStyle='#bbb0a0';
+      for(let i=0;i<10;i++){
+        const x=650+((hash(i,77)%190));
+        const y=132+((hash(i,81)%22));
+        g.fillRect(x,y,1,1);
+      }
     }
   }
   drawGate(t){
@@ -1287,6 +1334,9 @@ class Game{
       if(this.toastCur&&this.state==='game'){this.toastCur=null;return;}
       if(this.state==='intro'){this.skipIntro();return;}
       if(this.state==='game'){
+        if((this.level===1&&this.introT<260)||(this.level===2&&this.introT<220)){
+          this.introT=this.level===1?260:220;this.level1IntroDone=this.level===1;this.sound.confirm();return;
+        }
         if(this.dialog&&this.dialog.active){this.advDialog();return;}
         if(this.isTouch&&p.x>290&&p.y<16){this.toMenu();return;}
         this.touches.push({id:e.pointerId,x:p.x,y:p.y});
@@ -1389,7 +1439,7 @@ class Game{
     this.level=1;
     this.map=new Map();
     this.player=new Player(this.map,32,156);
-    this.hasKey=false;this.time=0;this.introT=0;
+    this.hasKey=false;this.time=0;this.introT=0;this.level1IntroDone=false;
     this.cam=0;this.shake=0;this.glitch=0;
     this.toastQ=[];this.toastCur=null;
     this.dialog={active:false,pages:[],page:0,n:0};
@@ -1429,7 +1479,7 @@ class Game{
   openDoor(){
     const d=this.map.door;
     if(d.opening||d.open>=1)return;
-    d.opening=true;this.sound.openS();this.shake=14;
+    d.opening=true;this.sound.openS();this.sound.doorCreakS();this.shake=14;
     this.particles.smoke(d.x+d.w/2,d.y+10,6);
     this.toast('O PORTAO SE ABRIU...');
   }
@@ -1460,7 +1510,14 @@ class Game{
       this.player.hideIn(cl);
       this.sound.hideS();
       this.particles.dust(cl.x+cl.w/2,cl.y+cl.h,4);
-      this.toast('ESCONDIDO!');
+      for(const s of this.skels){
+        if(s.state==='alert'||s.state==='search'){
+          s.state='search';s.searchT=110+Math.random()*80;s.targetCloset=null;s.searchClosetT=0;
+          s.lastSeen=s.x;
+        }
+      }
+      this.sound.voiceMurmurS();
+      this.toast('ESCONDIDO — ELES PERDERAM SUA PISTA.');
     }
   }
   consumePressed(){
@@ -1490,6 +1547,10 @@ class Game{
   stepF(dt){
     this.t++;
     this.sound.tick();
+    if(this.state==='game'&&this.level===2&&this.sound.ok&&this.t%180===0){
+      if(Math.random()<0.55)this.sound.voiceMurmurS();
+      else this.sound.doorCreakS();
+    }
     this.particles.update();
     const P=this.consumePressed();
     if(this.state==='game'){
@@ -1579,6 +1640,13 @@ class Game{
     if(tb.a&&!this.prevA)P.act=true;
     this.prevJ=tb.j;this.prevA=tb.a;
     this.updAmbient(dt);
+    if(this.introT<260){
+      if(P.any){this.introT=260;this.level1IntroDone=true;this.sound.confirm();return;}
+      this.introT++;
+      if(this.introT===58&&this.sound.ok)this.sound.bridgeBreakS();
+      if(this.introT>150&&this.introT%16===0&&this.sound.ok&&this.sound.ctx)this.sound.riffGuitar(110+(this.introT%4)*18,this.sound.ctx.currentTime,0.08);
+      return;
+    }
     const d=this.map.door;
     if(d.opening&&d.open<1){
       d.open+=1/90;
@@ -1692,7 +1760,7 @@ class Game{
   }
   mkSkels(){
     return [this.mkSkel(90,168,120),this.mkSkel(208,308,250),this.mkSkel(348,468,420),
-            this.mkSkel(506,628,560),this.mkSkel(892,1002,950)];
+            this.mkSkel(506,628,560)];
   }
   mkSkel(minX,maxX,x){
     return{x,y:150,dir:1,minX,maxX,state:'patrol',loseT:0,searchT:0,lastSeen:x,
@@ -1742,12 +1810,7 @@ class Game{
     return true;
   }
   skelSmellsCloset(s){
-    // Só cheira armário se jogador estiver escondido NELE
-    if(this.player.hiding&&this.player.hideCloset){
-      const cl=this.player.hideCloset;
-      const dist=Math.abs(s.x-(cl.x+cl.w/2));
-      if(dist<40)return cl;
-    }
+    // Os esqueletos não têm 'visão de armário': esconder apaga a última posição conhecida.
     return null;
   }
   updSkeletons(){
@@ -1819,15 +1882,8 @@ class Game{
             else{s.dir*=-1;s.lastSeen=s.x+s.dir*40;}
             s.animT+=0.09;
           }else if(Math.random()<0.02)s.dir*=-1;
-          if(Math.random()<0.01){
-            for(const cl of this.map.closets){
-              if(!cl.occupied)continue;
-              if(Math.abs(s.x-(cl.x+cl.w/2))<60){
-                s.targetCloset=cl;s.searchClosetT=120;
-                this.setBubble(s,'search');break;
-              }
-            }
-          }
+          // Procura apenas a área da última pista; nunca identifica o armário ocupado.
+          if(Math.random()<0.008&&s.bubbleT<=0)this.setBubble(s,'search');
         }
         if(Math.random()<0.005)this.setBubble(s,'search');
         if(s.searchT<=0&&!s.targetCloset){s.state='patrol';s.bubbleT=Math.min(s.bubbleT,20);}
@@ -1846,41 +1902,43 @@ class Game{
       return;
     }
     this.skels=this.skels.filter(s=>!s.dead);
-    const anyAlert=this.skels.some(s=>s.state==='alert');
+    const anyAlert=this.skels.some(s=>s.state==='alert') && !this.player.hiding;
     this.sound.setIntense(anyAlert);
   }
   crackBridge(){
-    const m=this.map;m.cracked=true;
-    this.sound.crackS();this.shake=10;this.glitch=8;
-    this.objective='CORRA PELO RESTO DA PONTE!';
-    this.toast('A PONTE RACHOU! OS ESQUELETOS OUVIRAM!');
+    const m=this.map;m.cracked=true;m.crackT=1;
+    this.sound.crackS();this.sound.bridgeBreakS();this.shake=13;this.glitch=10;
+    this.objective='CORRA! A PONTE ESTA DESABANDO!';
+    this.toast('CRRRAAAK! A PONTE ESTA SE PARTINDO!');
+    for(const p of m.planks){p.damage=Math.random()*1;}
     for(const s of this.skels){
-      s.state='alert';s.loseT=0;s.lastSeen=this.player.cx;
-      s.bubbleDelay=(Math.random()*60)|0;s.bubblePool='crack';
+      s.state='alert';s.loseT=0;s.lastSeen=this.player.cx;s.targetCloset=null;
+      s.bubbleDelay=(Math.random()*45)|0;s.bubblePool='crack';
     }
-    this.sound.alertS();this.sound.setIntense(true);
+    this.sound.alertS();this.sound.setIntense(!this.player.hiding);
   }
   startCine(){
     this.cine={active:true,t:0,hold:0};
-    this.sound.tone(40,1.4,{type:'sawtooth',v:0.2,slide:25});
-    this.sound.setIntense(true);
+    this.sound.tone(40,1.4,{type:'sawtooth',v:0.22,slide:25});
+    this.sound.bridgeBreakS();
+    this.sound.setIntense(!this.player.hiding);
   }
   updCine(){
     const c=this.cine,m=this.map;
     c.t++;this.time++;
     if(c.t%7===0)this.shake=Math.max(this.shake,3);
     const order=[10,9,11,8,12,7,13,6,14,5,15,4,16,3,17,2,18,1,19,0,20];
-    if(c.t>=26&&(c.t-26)%6===0){
+    if(c.t>=24&&(c.t-24)%5===0){
       const idx=order[Math.floor((c.t-26)/6)];
       if(idx!==undefined){
         const p=m.planks[idx];
-        if(p&&!p.falling&&!p.gone){p.falling=true;p.vy=0;this.particles.dust(p.tx*10+5,150,3);}
+        if(p&&!p.falling&&!p.gone){p.falling=true;p.vy=0;this.particles.dust(p.tx*10+5,150,7);this.particles.burst(p.tx*10+5,150,5,'#665544');if(p.tx%3===0)this.sound.clackS();}
       }
     }
     for(const p of m.planks){
       if(p.falling&&!p.gone){
         p.vy+=0.28;p.oy+=p.vy;
-        if(p.oy>34){p.gone=true;this.particles.bones(p.tx*10+5,176,5);if(Math.random()<0.5)this.sound.clackS();}
+        if(p.oy>34){p.gone=true;this.particles.bones(p.tx*10+5,176,5);this.particles.dust(p.tx*10+5,176,5);if(Math.random()<0.7)this.sound.clackS();}
       }
     }
     for(const s of this.skels){
@@ -1890,8 +1948,8 @@ class Game{
         continue;
       }
       if(!m.solid(Math.floor(s.x/TILE),15)){s.falling=true;s.vy=0;continue;}
-      s.dir=(740>s.x)?1:-1;
-      s.x+=s.dir*1.15;s.animT+=0.15;
+      s.dir=(620>s.x)?1:-1;
+      s.x=clamp(s.x+s.dir*1.15,14,628);s.animT+=0.15;
       if(s.bubbleT<=0&&Math.random()<0.012){s.bubbleTxt='AAAAH!';s.bubbleT=60;}
       if(s.bubbleT>0)s.bubbleT--;
     }
@@ -1907,7 +1965,7 @@ class Game{
     const m=this.map;m.bridgeDone=true;
     for(const s of this.skels){
       s.state='patrol';s.bubbleT=0;s.falling=false;
-      s.x=clamp(s.x,s.minX,s.maxX);
+      s.x=clamp(s.x,s.minX,Math.min(s.maxX,628));
     }
     this.sound.setIntense(false);
     this.objective='O PORTAO ESTA ABERTO. FUJA!';
@@ -1921,6 +1979,11 @@ class Game{
     if(tb.a&&!this.prevE)P.act=true;
     this.prevJ=tb.j;this.prevR2=tb.r2;this.prevE=tb.a;
     this.updAmbient(dt);
+    if(this.introT<220){
+      if(P.any){this.introT=220;this.sound.confirm();return;}
+      this.introT++;
+      return;
+    }
     if(this.alertSndT>0)this.alertSndT--;
     if(this.shake>0)this.shake--;
     if(this.glitch>0)this.glitch--;
@@ -1980,7 +2043,7 @@ class Game{
     }
     const gate=m.gate;
     if(m.bridgeDone&&!gate.opening&&gate.open<1&&this.player.x>1100){
-      gate.opening=true;this.sound.openS();this.shake=8;
+      gate.opening=true;this.sound.openS();this.sound.doorCreakS();this.shake=8;
       this.toast('O PORTAO SE ABRE...');
       this.particles.smoke(gate.x+gate.w/2,gate.y+10,8);
     }
@@ -2149,19 +2212,59 @@ class Game{
     }
   }
   drawLevelIntro(){
-    const tt=this.introT,dens=Math.max(0,1-tt/120);
+    const tt=this.introT;
+    if(this.level===1){
+      if(tt>=260)return;
+      ctx.fillStyle='rgba(0,0,0,0.94)';ctx.fillRect(0,0,W,H);
+      const cx=160,cy=96;
+      // Fragmentos do fantasma: primeiro espalhados, depois atraídos para o centro.
+      const pieces=[
+        [-44,-24],[-28,-40],[-10,-49],[12,-46],[31,-34],[45,-16],
+        [-50,4],[-32,18],[-12,10],[13,12],[34,17],[50,3],
+        [-26,38],[-5,32],[18,36],[34,46]
+      ];
+      const assemble=Math.min(1,Math.max(0,(tt-36)/128));
+      const ease=assemble*assemble*(3-2*assemble);
+      for(let i=0;i<pieces.length;i++){
+        const [ox,oy]=pieces[i];
+        const wob=Math.sin((tt+i*9)*0.12)*(1+assemble*2);
+        const driftX=ox*(1-ease),driftY=oy*(1-ease);
+        const px=Math.round(cx+driftX+wob),py=Math.round(cy+driftY);
+        const sz=i%3===0?4:3;
+        ctx.fillStyle=i%4===0?'#ffffff':(i%4===1?'#dfe8ff':'#9aa4bb');
+        ctx.fillRect(px,py,sz,sz);
+        ctx.fillStyle='#ffffff';ctx.fillRect(px+1,py-1,Math.max(1,sz-2),1);
+      }
+      // Forma completa aparecendo aos poucos.
+      if(assemble>0.68){
+        const a=Math.min(1,(assemble-0.68)/0.32);
+        ctx.globalAlpha=a;
+        const fr=this.ghost.frames.idle[Math.floor(tt/7)%this.ghost.frames.idle.length];
+        ctx.save();ctx.translate(cx-8,cy-8);ctx.scale(1.35,1.35);ctx.drawImage(fr,0,0);ctx.restore();
+        ctx.globalAlpha=1;
+      }
+      // Faíscas e sombra local
+      ctx.fillStyle='#88ccff';ctx.globalAlpha=0.1+0.08*Math.sin(tt*0.1);ctx.fillRect(cx-42,cy-34,84,70);ctx.globalAlpha=1;
+      const barW=170,barX=(W-barW)/2,barY=137;
+      ctx.fillStyle='#1b1b2b';ctx.fillRect(barX,barY,barW,10);
+      ctx.fillStyle='#777799';ctx.fillRect(barX,barY,barW,1);ctx.fillRect(barX,barY+9,barW,1);
+      const fill=Math.floor(barW*Math.min(1,tt/220));
+      ctx.fillStyle='#ffffff';ctx.fillRect(barX+2,barY+3,Math.max(0,fill-4),4);
+      drawText('VOLTANDO A VIDA',W/2,121,2,'#ffffff','center');
+      if(tt<44)drawText('OS FRAGMENTOS SE REUNEM...',W/2,27,1,'#8888aa','center');
+      else if(tt<160)drawText('O ESPIRITO ESTA SE MONTANDO...',W/2,27,1,'#aaaacc','center');
+      else drawText('PRONTO.',W/2,27,1,'#ffffff','center');
+      if(((tt>>3)%2)===0)drawText('APERTE QUALQUER TECLA OU TOQUE PARA PULAR',W/2,165,1,'#666677','center');
+      return;
+    }
+    const dens=Math.max(0,1-tt/120);
     ctx.fillStyle='#000000';
     if(dens>0){
       for(let y=0;y<H;y+=2)for(let x=0;x<W;x+=2)if(hash(x,y)%100<dens*100)ctx.fillRect(x,y,2,2);
     }
     if(tt>40){
-      if(this.level===2){
-        drawTextSh('CEMITERIO DO SUBMUNDO',W/2,52,2,'#ffffff','center');
-        drawText('E: ESCONDER  R: INVISIVEL',W/2,70,1,'#8888aa','center');
-      }else{
-        drawTextSh('LABORATORIO 7',W/2,52,2,'#ffffff','center');
-        drawText('ENCONTRE A CHAVE. FUJA.',W/2,70,1,'#8888aa','center');
-      }
+      drawTextSh('CEMITERIO DO SUBMUNDO',W/2,52,2,'#ffffff','center');
+      drawText('E: ESCONDER  R: INVISIVEL',W/2,70,1,'#8888aa','center');
     }
   }
   drawObjectiveHUD(){
