@@ -862,7 +862,7 @@ class Map2{
   }
   draw(cam,t){
     const g=ctx;
-    // Camadas de fundo para profundidade.
+    // Camadas de fundo para profundidade; o antigo piso/rua nao e desenhado.
     g.fillStyle='#161321';g.fillRect(cam,92,MW2*TILE,58);
     g.fillStyle='#201a29';g.fillRect(cam,116,MW2*TILE,34);
     for(let i=0;i<18;i++){const x=cam+i*72+((this.t||t)*0.08)%72;g.fillStyle='#2b2434';g.fillRect(x,101-(i%3)*3,26,2);}
@@ -925,16 +925,9 @@ class Map2{
       }
     }
     this.drawMausoleum(t);
-    for(let tx=x0;tx<=x1;tx++)for(let ty=15;ty<18;ty++){
-      if(this.g[ty*MW2+tx]===1)this.drawDirt(tx,ty);
-    }
-    for(let tx=x0;tx<=x1;tx++){
-      const h=hash(tx,99);
-      if(h%19===0&&!(tx>=63&&tx<=85)){
-        g.fillStyle='#776655';
-        g.fillRect(tx*10+(h%7),148,2,1);
-      }
-    }
+    // O piso/rua elevada foi removido visualmente no nivel 2.
+    // Mantemos a colisao do chao, mas deixamos o cenario de fundo aparecer
+    // livremente atras dos armarios e das grades.
     for(let tx=x0;tx<=x1;tx++)for(let ty=12;ty<=14;ty++){
       if(this.g[ty*MW2+tx]===3)this.drawCryptTile(tx,ty);
     }
