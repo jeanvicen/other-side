@@ -233,7 +233,7 @@ class Sound{
     this.bass=c.createGain();this.bass.gain.value=1.0;this.bass.connect(this.comp);
     this.guit=c.createGain();this.guit.gain.value=1.0;this.guit.connect(this.comp);
     this.sfxG=c.createGain();this.sfxG.gain.value=0.9;this.sfxG.connect(this.master);
-    this.ok=true;this.nextT=c.currentTime+0.15;
+    this.ok=true;this.nextT=c.currentTime+0.15;this.bpm=132;
   }
   setMusic(v){
     this.musicOn=v;
@@ -279,7 +279,9 @@ class Sound{
       const chord=chordProg[this.bar%4];
       this.powerChord(chord,t,this.intense?0.55:0.78);
     }
-    if(s%4===2)this.riffGuitar([110,123.47,146.83,164.81][(this.bar+s/16|0)%4],t,this.intense?0.12:0.09);
+    if(s%2===0)this.riffGuitar([110,123.47,146.83,164.81,196,220][(this.bar*2+s/2|0)%6],t,this.intense?0.14:0.11);
+    if(s%16===10)this.riffGuitar(329.63,t,this.intense?0.11:0.08);
+    if(s%16===14)this.riffGuitar(246.94,t,this.intense?0.12:0.09);
     if(this.intense&&s%8===6&&Math.random()<0.3){
       const lead=[329.63,392.00,440.00,493.88,587.33];
       this.leadGuitar(lead[(Math.random()*lead.length)|0],t);
@@ -484,6 +486,15 @@ class Sound{
     this.tone(180,0.55,{type:'sawtooth',v:0.055,slide:110});
     this.tone(920,0.11,{type:'triangle',v:0.035,at:0.18,slide:540});
   }
+  doorCloseS(){
+    this.tone(240,0.18,{type:'sawtooth',v:0.07,slide:120});
+    this.tone(85,0.26,{type:'triangle',v:0.1,at:0.04,slide:55});
+    this.tone(1200,0.05,{type:'square',v:0.035,at:0.12});
+  }
+  metalRattleS(){
+    [1300,1750,2200].forEach((f,i)=>this.tone(f,0.045,{type:'square',v:0.025,at:i*0.035}));
+  }
+  windS(){this.tone(72,1.2,{type:'sine',v:0.025,slide:58});}
   voiceMurmurS(){
     [180,220,260].forEach((f,i)=>this.tone(f,0.18,{type:'sawtooth',v:0.018,at:i*0.055,slide:f*0.92}));
   }
@@ -817,6 +828,9 @@ class Map2{
     this.graves=[8,13,23,27,37,42,52,58,90,95,101,107,112];
     this.trees=[6,29,45,55,92,104,113];
     this.fences=[{x0:10,x1:16},{x0:24,x1:30},{x0:39,x1:46},{x0:51,x1:57},{x0:96,x1:103},{x0:108,x1:114}];
+    this.ironRails=[{x0:2,x1:17},{x0:25,x1:43},{x0:46,x1:61},{x0:87,x1:116}];
+    this.lanterns=[14,27,49,61,88,106,116];
+    this.roadSigns=[{x:22,txt:'NAO ENTRE'},{x:53,txt:'CEMITERIO'},{x:97,txt:'PORTAO'}];
     this.closets=[
       {x:110,y:130,w:18,h:30,occupied:false,id:0},
       {x:220,y:130,w:18,h:30,occupied:false,id:1},
@@ -848,13 +862,42 @@ class Map2{
   }
   draw(cam,t){
     const g=ctx;
+    // Camadas de fundo para profundidade.
+    g.fillStyle='#161321';g.fillRect(cam,92,MW2*TILE,58);
+    g.fillStyle='#201a29';g.fillRect(cam,116,MW2*TILE,34);
+    for(let i=0;i<18;i++){const x=cam+i*72+((this.t||t)*0.08)%72;g.fillStyle='#2b2434';g.fillRect(x,101-(i%3)*3,26,2);}
     const x0=Math.max(0,Math.floor(cam/TILE)-1),x1=Math.min(MW2-1,Math.floor((cam+W)/TILE)+1);
     for(const f of this.fences){
       const fx0=f.x0*10,fx1=f.x1*10;
       if(fx1<cam-20||fx0>cam+W+20)continue;
-      g.fillStyle='#443322';
-      for(let x=fx0;x<=fx1;x+=6)g.fillRect(x,136,1,14);
+      g.fillStyle='#35261f';
+      for(let x=fx0;x<=fx1;x+=6){g.fillRect(x,136,1,14);g.fillRect(x+1,136,1,2);}
       g.fillRect(fx0,140,fx1-fx0,1);
+    }
+    // Grades de ferro na estrada: postes, barras e pontas enferrujadas.
+    for(const r of this.ironRails){
+      const x0=r.x0*10,x1=r.x1*10;
+      if(x1<cam-20||x0>cam+W+20)continue;
+      g.fillStyle='#17151a';g.fillRect(x0,122,x1-x0,2);g.fillRect(x0,130,x1-x0,2);
+      for(let x=x0;x<=x1;x+=8){
+        g.fillStyle='#3b3540';g.fillRect(x,118,2,18);
+        g.fillStyle='#111016';g.fillRect(x,118,1,18);
+        g.fillRect(x-1,117,4,1);g.fillRect(x,116,2,1);
+      }
+    }
+    for(const lx of this.lanterns){
+      const x=lx*10+5;if(x<cam-20||x>cam+W+20)continue;
+      g.fillStyle='#1b171c';g.fillRect(x-1,112,3,25);g.fillRect(x-5,111,11,2);
+      g.fillStyle='#6d5d45';g.fillRect(x-3,108,7,4);
+      const glow=0.16+0.07*Math.sin(t*0.12+lx);g.fillStyle='#ffd27a';g.globalAlpha=glow;
+      g.fillRect(x-6,105,13,10);g.fillRect(x-9,108,19,4);g.globalAlpha=1;
+      g.fillStyle=((t+lx)%37<26)?'#ffe4a5':'#6c614f';g.fillRect(x-1,109,2,3);
+    }
+    for(const sg of this.roadSigns){
+      const x=sg.x*10;if(x<cam-20||x>cam+W+20)continue;
+      g.fillStyle='#26212a';g.fillRect(x,116,1,24);g.fillRect(x-6,111,13,7);
+      g.fillStyle='#91839c';g.fillRect(x-6,111,13,1);
+      drawText(sg.txt,x,113,1,'#b5a8bb','center');
     }
     for(const tx of this.trees){
       const x=tx*10;
@@ -900,9 +943,11 @@ class Map2{
   }
   drawDirt(tx,ty){
     const x=tx*10,y=ty*10,h=hash(tx,ty),g=ctx;
-    g.fillStyle='#554433';g.fillRect(x,y,10,10);
+    g.fillStyle=(h%5===0)?'#5f4a3c':'#554433';g.fillRect(x,y,10,10);
     g.fillStyle='#221100';
     g.fillRect(x+(h%8),y+((h>>2)%8),1,1);
+    if(h%4===0){g.fillStyle='#806653';g.fillRect(x+2,y+6,3,1);g.fillRect(x+7,y+3,1,2);}
+    if(h%7===0){g.fillStyle='#1c130f';g.fillRect(x+5,y+8,4,1);}
     if(ty===15){
       g.fillStyle='#776655';g.fillRect(x,y,10,1);
       if(h%3===0)g.fillRect(x+(h%8),y-1,1,1);
@@ -1000,40 +1045,37 @@ class Map2{
   }
   drawBridge(t){
     const g=ctx;
-    // Sombra profunda no abismo e cordas/estacas laterais.
-    g.fillStyle='#000000';g.globalAlpha=0.55;g.fillRect(630,128,4,24);g.fillRect(856,128,4,24);g.globalAlpha=1;
-    g.fillStyle='#666677';g.fillRect(630,126,4,24);g.fillRect(856,126,4,24);
-    g.fillStyle='#aaaacc';g.fillRect(630,126,4,1);g.fillRect(856,126,4,1);
+    // Abismo com camadas, vigas e cordas da ponte.
+    g.fillStyle='#050509';g.fillRect(630,128,230,52);
+    for(let y=152;y<180;y+=5){g.fillStyle=(y%10===2)?'#11111a':'#09090e';g.fillRect(634,y,222,2);}
+    g.fillStyle='#665a60';g.fillRect(630,125,4,28);g.fillRect(856,125,4,28);
+    g.fillStyle='#c0aeb0';g.fillRect(630,125,4,1);g.fillRect(856,125,4,1);
     if(!this.bridgeDone){
-      g.fillStyle='#443322';
-      for(let rx=632;rx<858;rx+=34){
-        const sag=this.cracked?Math.sin(t*0.35+rx)*2:0;
-        g.fillRect(rx,132+sag,34,2);
-        g.fillRect(rx,145-sag,34,2);
-      }
+      g.strokeStyle='#5a4636';g.lineWidth=1;
+      g.beginPath();g.moveTo(632,128);g.quadraticCurveTo(742,this.cracked?150:140,858,128);g.stroke();
+      g.beginPath();g.moveTo(632,132);g.quadraticCurveTo(742,this.cracked?154:144,858,132);g.stroke();
     }
     for(const p of this.planks){
       if(p.gone)continue;
       const x=p.tx*10;let y=150+p.oy;
-      const shake=this.cracked?Math.sin(t*0.6+p.tx)*1.2:0;
-      y+=shake;
-      g.fillStyle='#332211';g.globalAlpha=0.5;g.fillRect(x+1,y+3,9,2);g.globalAlpha=1;
-      g.fillStyle='#665544';g.fillRect(x,y,10,3);
-      g.fillStyle='#aa8870';g.fillRect(x,y,10,1);
-      g.fillStyle='#221100';g.fillRect(x+9,y,1,3);
+      const shake=this.cracked?Math.sin(t*0.6+p.tx)*1.5:0;y+=shake;
+      g.fillStyle='#140d09';g.globalAlpha=0.7;g.fillRect(x+1,y+4,9,3);g.globalAlpha=1;
+      g.fillStyle=(p.falling?'#4a3020':'#76533b');g.fillRect(x,y,10,3);
+      g.fillStyle='#b58b6b';g.fillRect(x,y,10,1);
+      g.fillStyle='#26180f';g.fillRect(x+9,y,1,3);
       const h=hash(p.tx,44);
-      g.fillStyle='#3a2415';
-      if(h%3===0)g.fillRect(x+2,y+1,4,1);
-      if(h%5===0)g.fillRect(x+6,y+2,2,1);
-      if(this.cracked&&(h%4===0)){g.fillStyle='#18100b';g.fillRect(x+4,y,1,3);}
+      g.fillStyle='#3a2114';
+      if(h%2===0)g.fillRect(x+2,y+1,4,1);
+      if(h%3===0)g.fillRect(x+6,y+2,2,1);
+      if(this.cracked&&h%3===0){g.fillStyle='#130b08';g.fillRect(x+4,y,1,3);g.fillRect(x+6,y+1,1,2);}
+      if(p.falling){g.fillStyle='#aa8064';g.fillRect(x+2,y-1,5,1);}
     }
     if(this.cracked){
-      g.fillStyle='#bbb0a0';
-      for(let i=0;i<10;i++){
-        const x=650+((hash(i,77)%190));
-        const y=132+((hash(i,81)%22));
-        g.fillRect(x,y,1,1);
+      for(let i=0;i<26;i++){
+        const x=642+hash(i,77)%212,y=128+hash(i,81)%28;
+        g.fillStyle=(i%3===0)?'#d2c4b4':'#74665f';g.fillRect(x,y,1,1);
       }
+      g.fillStyle='#b8a28c';g.globalAlpha=0.55;g.fillRect(728,141,2,1);g.fillRect(771,147,3,1);g.globalAlpha=1;
     }
   }
   drawGate(t){
@@ -1501,14 +1543,14 @@ class Game{
   doInteract2(){
     if(this.player.hiding){
       this.player.unhide();
-      this.sound.unhideS();
+      this.sound.unhideS();this.sound.metalRattleS();
       this.particles.dust(this.player.cx,this.player.cy,5);
       return;
     }
     const cl=this.map.getClosetAt(this.player.cx,this.player.cy);
     if(cl&&!cl.occupied){
       this.player.hideIn(cl);
-      this.sound.hideS();
+      this.sound.hideS();this.sound.metalRattleS();
       this.particles.dust(cl.x+cl.w/2,cl.y+cl.h,4);
       for(const s of this.skels){
         if(s.state==='alert'||s.state==='search'){
@@ -1547,9 +1589,9 @@ class Game{
   stepF(dt){
     this.t++;
     this.sound.tick();
-    if(this.state==='game'&&this.level===2&&this.sound.ok&&this.t%180===0){
+    if(this.state==='game'&&this.level===2&&this.sound.ok&&this.t%120===0){
       if(Math.random()<0.55)this.sound.voiceMurmurS();
-      else this.sound.doorCreakS();
+      else if(Math.random()<0.5)this.sound.doorCreakS();else this.sound.windS();
     }
     this.particles.update();
     const P=this.consumePressed();
@@ -2052,6 +2094,7 @@ class Game{
       if(gate.open>=1){gate.open=1;gate.opening=false;}
     }
     if(this.player.x>1208){
+      this.sound.doorCloseS();
       this.finalTime=this.time;this.escTarget='end';
       this.state='escapeAnim';this.escT=0;
       this.sound.escapeS();this.sound.setIntense(false);
@@ -2264,7 +2307,8 @@ class Game{
     }
     if(tt>40){
       drawTextSh('CEMITERIO DO SUBMUNDO',W/2,52,2,'#ffffff','center');
-      drawText('E: ESCONDER  R: INVISIVEL',W/2,70,1,'#8888aa','center');
+      drawText('E: ESCONDER  R: INVISIVEL',W/2,70,1,'#a4a0b8','center');
+      ctx.globalAlpha=0.18+0.05*Math.sin(tt*0.09);ctx.fillStyle='#8f6f9a';ctx.fillRect(38,82,244,1);ctx.globalAlpha=1;
     }
   }
   drawObjectiveHUD(){
@@ -2527,6 +2571,13 @@ class Game{
     for(const dd of this.dust){
       ctx.fillStyle='#8888aa';ctx.fillRect(Math.round(dd.x),Math.round(dd.y),1,1);
     }
+    // Iluminação dinâmica: o personagem carrega uma pequena área de luz.
+    const lx=Math.round(this.player.cx-this.cam),ly=Math.round(this.player.cy);
+    const grad=ctx.createRadialGradient(lx,ly,5,lx,ly,86);
+    grad.addColorStop(0,'rgba(210,225,255,0.12)');grad.addColorStop(0.42,'rgba(130,145,175,0.055)');grad.addColorStop(1,'rgba(0,0,0,0)');
+    ctx.fillStyle=grad;ctx.fillRect(0,0,W,H);
+    // Faixa de sombra na estrada para separar chão/objetos.
+    ctx.fillStyle='rgba(0,0,0,0.13)';ctx.fillRect(0,150,W,30);
     // Vignette vermelho dinâmico quando esqueletos perto
     const closest=this.skels.length?this.skels.reduce((min,s)=>Math.min(min,Math.abs(s.x-this.player.cx)),999):999;
     if(closest<120&&!this.player.hiding){
