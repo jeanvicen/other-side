@@ -862,7 +862,7 @@ class Map2{
   }
   draw(cam,t){
     const g=ctx;
-    // Camadas de fundo para profundidade; o antigo piso/rua nao e desenhado.
+    // Camadas de fundo para profundidade.
     g.fillStyle='#161321';g.fillRect(cam,92,MW2*TILE,58);
     g.fillStyle='#201a29';g.fillRect(cam,116,MW2*TILE,34);
     for(let i=0;i<18;i++){const x=cam+i*72+((this.t||t)*0.08)%72;g.fillStyle='#2b2434';g.fillRect(x,101-(i%3)*3,26,2);}
@@ -925,9 +925,17 @@ class Map2{
       }
     }
     this.drawMausoleum(t);
-    // O piso/rua elevada foi removido visualmente no nivel 2.
-    // Mantemos a colisao do chao, mas deixamos o cenario de fundo aparecer
-    // livremente atras dos armarios e das grades.
+    for(let tx=x0;tx<=x1;tx++)for(let ty=15;ty<18;ty++){
+      // O chao marrom/estrada foi removido apenas visualmente.
+      // A colisao continua existindo no mapa.
+    }
+    for(let tx=x0;tx<=x1;tx++){
+      const h=hash(tx,99);
+      if(h%19===0&&!(tx>=63&&tx<=85)){
+        g.fillStyle='#776655';
+        g.fillRect(tx*10+(h%7),148,2,1);
+      }
+    }
     for(let tx=x0;tx<=x1;tx++)for(let ty=12;ty<=14;ty++){
       if(this.g[ty*MW2+tx]===3)this.drawCryptTile(tx,ty);
     }
@@ -935,16 +943,7 @@ class Map2{
     this.drawPit(t);this.drawBridge(t);this.drawGate(t);
   }
   drawDirt(tx,ty){
-    const x=tx*10,y=ty*10,h=hash(tx,ty),g=ctx;
-    g.fillStyle=(h%5===0)?'#5f4a3c':'#554433';g.fillRect(x,y,10,10);
-    g.fillStyle='#221100';
-    g.fillRect(x+(h%8),y+((h>>2)%8),1,1);
-    if(h%4===0){g.fillStyle='#806653';g.fillRect(x+2,y+6,3,1);g.fillRect(x+7,y+3,1,2);}
-    if(h%7===0){g.fillStyle='#1c130f';g.fillRect(x+5,y+8,4,1);}
-    if(ty===15){
-      g.fillStyle='#776655';g.fillRect(x,y,10,1);
-      if(h%3===0)g.fillRect(x+(h%8),y-1,1,1);
-    }
+    // Removido visualmente a pedido: nenhuma pista marrom e desenhada aqui.
   }
   drawCryptTile(tx,ty){
     const x=tx*10,y=ty*10,g=ctx;
@@ -2678,6 +2677,330 @@ class Game{
     requestAnimationFrame(loop);
   }
 }
+
+
+/* ================================================================
+   OTHER SIDE — V5.0 POLISHED / CEMITÉRIO REALISTA
+   Patch visual e sonoro: preserva a lógica original, mas reconstrói
+   atmosfera, materiais, iluminação, UI e apresentação do nível 2.
+================================================================ */
+(function(){
+  const C={
+    ink:'#07070d', night:'#0a0c17', fog:'#7f8799', stone:'#505363',
+    stoneHi:'#7d8192', stoneLo:'#292c38', soil:'#242025', soil2:'#302b2f',
+    wood:'#513b2b', woodHi:'#80624a', metal:'#292a31', metalHi:'#666b78',
+    moss:'#4d6258', moon:'#dbe3ff', warm:'#e9c48a', cold:'#9fb8e8', blood:'#b4313b'
+  };
+  const h2=(x,y)=>hash(x|0,y|0);
+  function rect(g,x,y,w,h,c,a){g.globalAlpha=a==null?1:a;g.fillStyle=c;g.fillRect(Math.round(x),Math.round(y),Math.round(w),Math.round(h));g.globalAlpha=1;}
+  function glow(g,x,y,r,c,a){const q=g.createRadialGradient(x,y,0,x,y,r);q.addColorStop(0,c.replace(')',','+a+')'));}
+
+  // ---------- MENU / FRONT END ----------
+  Menu.prototype.drawBg=function(t){
+    const g=ctx;
+    const grad=g.createLinearGradient(0,0,0,H);
+    grad.addColorStop(0,'#070810');grad.addColorStop(.58,'#101321');grad.addColorStop(1,'#05060b');
+    g.fillStyle=grad;g.fillRect(0,0,W,H);
+
+    // Lua e névoa de fundo.
+    const mx=254+Math.sin(t*.002)*2;
+    g.globalAlpha=.08;g.fillStyle='#b7c8ff';g.fillRect(mx-34,20,68,1);g.fillRect(mx-48,25,96,1);g.globalAlpha=1;
+    g.fillStyle='#dbe4ff';g.globalAlpha=.9;g.fillRect(mx-6,18,12,12);g.globalAlpha=.22;g.fillRect(mx-12,14,24,20);g.globalAlpha=1;
+    for(let i=0;i<12;i++){
+      const x=((h2(i,19)%420)-this.g.t*.03)%W;const y=46+(h2(i,29)%70);
+      rect(g,(x+W)%W,y,18+(i%4)*6,1,'#768096',.12);
+    }
+
+    // Piso do estúdio/menu, agora com profundidade e materiais.
+    const floor=g.createLinearGradient(0,146,0,H);
+    floor.addColorStop(0,'#34353f');floor.addColorStop(1,'#111219');g.fillStyle=floor;g.fillRect(0,146,W,34);
+    rect(g,0,146,W,1,'#85889a',.45);
+    for(let x=0;x<W;x+=12){
+      const hh=3+(h2(x,51)%6);rect(g,x,160+hh,8,1,'#555866',.2);rect(g,x+4,151+(h2(x,52)%4),4,1,'#a0a3b0',.12);
+    }
+
+    // Bancada e tanque, com sombras/reflexos mais coerentes.
+    rect(g,232,55,62,95,'#171923',1);rect(g,236,59,54,88,'#2b2d38',1);
+    rect(g,238,62,50,22,'#0a0b10',1);rect(g,241,65,44,16,'#12151d',1);
+    rect(g,240,58,46,2,'#5f6475',.5);rect(g,241,86,44,61,'#22242d',1);
+    rect(g,258,42,8,14,'#474a57',1);rect(g,257,41,10,2,'#7a7f8e',.5);
+    rect(g,260,45,4,10,'#11131a',1);
+    if(this.tankOn>0){
+      rect(g,258,87,6,3,'#b5ffd0',.8);rect(g,259,92,4,1,'#72ff9c',.45);
+    }
+    rect(g,16,96,58,52,'#282b34',1);rect(g,19,99,52,20,'#090a0f',1);
+    rect(g,19,119,52,3,'#575b69',.55);
+    for(let i=0;i<5;i++)rect(g,22+i*9,128+(i%2)*6,5,1,'#11131a',1);
+
+    // Partículas / poeira cinematográfica.
+    for(const p of this.parts){
+      rect(g,p.x,p.y,1,1,p.c,.55);
+      if(h2(Math.floor(p.x),Math.floor(p.y))%11===0)rect(g,p.x-1,p.y,3,1,p.c,.08);
+    }
+  };
+
+  Menu.prototype.draw=function(t){
+    this.drawBg(t);
+    const gf=this.g.ghost.frames.idle[Math.floor(t/8)%6];
+    ctx.globalAlpha=.16;ctx.drawImage(gf,141,21,48,48);ctx.globalAlpha=1;
+
+    // Título com placa metálica, sombra e brilho.
+    rect(ctx,52,10,216,38,'#0b0d14',.72);rect(ctx,55,12,210,1,'#858b9e',.5);rect(ctx,55,45,210,1,'#252936',1);
+    drawTextSh('OTHER SIDE',W/2,14,4,'#f2f4ff','center');
+    drawText('CEMITERIO DO SUBMUNDO',W/2,39,1,'#9ca5ba','center');
+    this.drips.draw('#b93440',2);
+
+    if(!this.g.sound.ok&&((t>>4)%2)===0)
+      drawText('TOQUE PARA ATIVAR O SOM',W/2,57,1,'#a4acbd','center');
+
+    const labels=['JOGAR','CONFIGURACOES','DIRECAO'];
+    for(let i=0;i<3;i++){
+      const y=74+i*26, selected=this.sel===i;
+      if(selected){
+        rect(ctx,70,y,180,20,'#d9deee',.95);rect(ctx,72,y+2,176,16,'#1a1d27',1);
+        drawText('>',80,y+6,2,'#e7c98b');drawText(labels[i],W/2+5,y+6,2,'#ffffff','center');
+      }else{
+        rect(ctx,70,y,180,20,'#151821',1);rect(ctx,70,y,180,1,'#4c5262',.9);rect(ctx,70,y+19,180,1,'#272b37',1);
+        drawText(labels[i],W/2,y+6,2,'#c8cfdf','center');
+      }
+    }
+    rect(ctx,74,157,172,11,'#0b0d13',.78);drawText('A/D OU SETAS   •   ENTER',W/2,160,1,'#747d90','center');
+    drawText('V5.0  •  KLIPZASTUDIO',W/2,173,1,'#555d6e','center');
+  };
+
+  const __baseSettingsDraw=Menu.prototype.drawSettings;
+  Menu.prototype.drawSettings=function(t){
+    const g=ctx;const grad=g.createLinearGradient(0,0,0,H);grad.addColorStop(0,'#090b12');grad.addColorStop(1,'#171923');g.fillStyle=grad;g.fillRect(0,0,W,H);
+    for(const p of this.parts)rect(g,p.x,p.y,1,1,p.c,.25);
+    rect(g,42,14,236,42,'#10131b',.94);rect(g,45,16,230,1,'#777d8d',.5);rect(g,45,53,230,1,'#252936',1);
+    drawTextSh('CONFIGURACOES',W/2,24,3,'#ffffff','center');
+    const rows=['MUSICA: '+(this.g.sound.musicOn?'LIGADA':'DESLIGADA'),'TELA CHEIA','VOLTAR'];
+    for(let i=0;i<3;i++){
+      const y=70+i*27,selected=this.setSel===i;
+      rect(g,48,y,224,20,selected?'#2e3341':'#12151d',1);
+      rect(g,48,y,224,1,selected?'#d5dae7':'#4b5160',1);
+      rect(g,48,y+19,224,1,'#252a36',1);
+      drawText(rows[i],W/2+4,y+6,2,selected?'#ffffff':'#c2c9da','center');
+      if(i===0){rect(g,61,y+7,7,6, this.g.sound.musicOn?'#83c7a0':'#555a68',1);}
+    }
+    drawText('ESC / VOLTAR',W/2,162,1,'#6e7688','center');
+  };
+
+  // ---------- CEMETERY LEVEL 2 ----------
+  Map2.prototype.draw=function(cam,t){
+    const g=ctx;
+    const x0=Math.max(0,Math.floor(cam/TILE)-2),x1=Math.min(MW2-1,Math.floor((cam+W)/TILE)+2);
+
+    // Terreno: tudo nasce do mesmo plano do chão, evitando blocos "flutuando".
+    const ground=g.createLinearGradient(0,128,0,180);
+    ground.addColorStop(0,'#17141a');ground.addColorStop(.42,'#282126');ground.addColorStop(1,'#101015');
+    g.fillStyle=ground;g.fillRect(cam,96,MW2*TILE,84);
+    rect(g,cam,148,W+8,2,'#4a4147',.72);
+    rect(g,cam,150,W+8,30,'#121116',.72);
+
+    // Colinas distantes e neblina.
+    for(let k=0;k<3;k++){
+      g.fillStyle=k===0?'#14141b':k===1?'#191920':'#202029';
+      g.globalAlpha=.82-.12*k;
+      for(let x=cam;x<cam+W+12;x+=4){
+        const wx=x+k*180;const yy=110+k*7+Math.sin(wx*.011+k)*7+Math.sin(wx*.024)*3;
+        g.fillRect(x,yy,4,1);
+      }
+      g.globalAlpha=1;
+    }
+
+    // Pedras e trilha central, alinhadas ao piso.
+    for(let tx=x0;tx<=x1;tx++){
+      const hh=h2(tx,99);
+      if(hh%3===0){rect(g,tx*10+1+(hh%6),145,5+(hh%4),1,'#7b7177',.16);}
+      if(hh%7===0){rect(g,tx*10+3,152+(hh%5),2,1,'#6d6269',.14);}
+      if(hh%13===0){rect(g,tx*10+7,172+(hh%4),1,1,'#938a91',.12);}
+    }
+    // Pedras da alameda.
+    for(let x=Math.floor(cam/18)*18-18;x<cam+W+20;x+=18){
+      const wob=(h2(x,6)%5)-2;rect(g,x,149+wob,13,1,'#777078',.26);rect(g,x+2,148+wob,8,1,'#b0a8ae',.12);
+    }
+
+    // Criptas: volume e iluminação coerentes com o chão.
+    for(const c of this.crypts){
+      for(let tx=c.x;tx<c.x+c.w;tx++)for(let ty=12;ty<=14;ty++)this.drawCryptTile(tx,ty);
+      const bx=c.x*10, by=120;
+      rect(g,bx-2,119,c.w*10+4,2,'#7a7d89',.35);
+      rect(g,bx+2,121,c.w*10-4,1,'#a1a4af',.18);
+    }
+
+    // Túmulos diferentes, sempre assentados em y=150.
+    for(let i=0;i<this.graves.length;i++){
+      const x=this.graves[i]*10; if(x<cam-24||x>cam+W+24)continue;
+      this.drawGraveV5(x,i,t);
+    }
+
+    // Cercas e grades apoiadas no terreno.
+    for(const f of this.fences)this.drawFenceV5(f);
+    for(const r of this.ironRails)this.drawIronRailV5(r,t);
+    for(const tx of this.trees)this.drawTreeV5(tx,t);
+    for(const lx of this.lanterns)this.drawLanternV5(lx,t);
+    for(const sg of this.roadSigns)this.drawSignV5(sg);
+
+    this.drawMausoleumV5(t);
+    for(const cl of this.closets)this.drawCloset(cl,t);
+    this.drawBridge(t);this.drawPit(t);this.drawGate(t);
+
+    // Linha de contato das estruturas com o solo = evita sensação de objeto colado.
+    for(let x=x0;x<=x1;x++)if(h2(x,88)%4===0)rect(g,x*10,150,7,1,'#000000',.28);
+  };
+
+  Map2.prototype.drawGraveV5=function(x,i,t){
+    const g=ctx, v=h2(i,71)%4, moss=(h2(i,72)%7===0);
+    rect(g,x+1,148,8,2,'#000000',.42);
+    if(v===0){
+      rect(g,x+2,137,6,12,'#555965',1);rect(g,x+3,136,4,2,'#8c909c',.85);rect(g,x+2,140,6,1,'#707580',.65);
+      rect(g,x+3,143,3,1,'#242831',1);rect(g,x+3,145,2,1,'#343944',1);
+    }else if(v===1){
+      rect(g,x+4,136,2,14,'#646875',1);rect(g,x+1,140,8,2,'#7d818d',1);rect(g,x+2,141,6,1,'#343741',1);
+    }else if(v===2){
+      rect(g,x+1,140,8,10,'#474b57',1);rect(g,x+2,139,6,2,'#717682',1);rect(g,x+3,143,4,1,'#252832',1);
+    }else{
+      rect(g,x+1,144,8,6,'#343740',1);rect(g,x+2,142,6,3,'#565b67',1);
+      rect(g,x+3,145,2,1,'#1f222a',1);
+    }
+    if(moss){rect(g,x+2,146,2,2,C.moss,.6);rect(g,x+7,147,1,2,C.moss,.45);}
+  };
+  Map2.prototype.drawFenceV5=function(f){
+    const g=ctx,x0=f.x0*10,x1=f.x1*10;if(x1<game.cam-30||x0>game.cam+W+30)return;
+    rect(g,x0,137,x1-x0,2,'#1b1717',1);rect(g,x0,143,x1-x0,2,'#302526',1);
+    for(let x=x0;x<=x1;x+=10){rect(g,x,131,2,15,'#302525',1);rect(g,x+1,131,1,15,'#745648',.72);rect(g,x-1,130,4,1,'#8c6a57',.35);}
+  };
+  Map2.prototype.drawIronRailV5=function(r,t){
+    const g=ctx,x0=r.x0*10,x1=r.x1*10;if(x1<game.cam-30||x0>game.cam+W+30)return;
+    rect(g,x0,122,x1-x0,2,'#16161b',1);rect(g,x0,129,x1-x0,2,'#0e0f13',1);
+    for(let x=x0;x<=x1;x+=9){rect(g,x,116,2,17,'#343741',1);rect(g,x+1,116,1,17,'#7c6e70',.35);rect(g,x-1,115,4,1,'#a27e69',.26);}
+  };
+  Map2.prototype.drawTreeV5=function(tx,t){
+    const g=ctx,x=tx*10;if(x<game.cam-40||x>game.cam+W+40)return;
+    rect(g,x+3,126,4,24,'#30231f',1);rect(g,x+5,118,2,10,'#493027',1);
+    rect(g,x-4,122,8,2,'#3a2822',1);rect(g,x+7,124,8,2,'#362621',1);
+    rect(g,x+5,112,2,9,'#2f2321',1);rect(g,x+10,118,5,2,'#332422',1);
+    // poucos galhos, sem “árvore colada”.
+    for(let i=0;i<6;i++){const px=x-6+(h2(tx,i)%22),py=110+(h2(tx,i+20)%16);rect(g,px,py,2,1,'#4a3934',.42);}
+  };
+  Map2.prototype.drawLanternV5=function(lx,t){
+    const g=ctx,x=lx*10+5;if(x<game.cam-30||x>game.cam+W+30)return;
+    rect(g,x-1,113,3,36,'#16161a',1);rect(g,x-5,112,11,2,'#332a27',1);rect(g,x-3,107,7,6,'#4f453f',1);rect(g,x-2,108,5,5,'#8a7760',.62);
+    const pulse=.18+.08*Math.sin(t*.08+lx);
+    const gr=g.createRadialGradient(x,110,1,x,110,18);gr.addColorStop(0,'rgba(255,225,170,'+(pulse+.2)+')');gr.addColorStop(1,'rgba(255,205,120,0)');g.fillStyle=gr;g.fillRect(x-18,92,x*0+36,36);
+    rect(g,x-1,109,2,3,'#ffe0a2',.92);
+  };
+  Map2.prototype.drawSignV5=function(sg){
+    const g=ctx,x=sg.x*10;if(x<game.cam-30||x>game.cam+W+30)return;
+    rect(g,x-7,111,14,9,'#25252c',1);rect(g,x-7,111,14,1,'#8c909f',.55);rect(g,x,120,1,18,'#36363d',1);
+    drawText(sg.txt,x,113,1,'#c3bac0','center');
+  };
+  Map2.prototype.drawMausoleumV5=function(t){
+    const g=ctx;
+    // Fachada inicial integrada ao piso.
+    rect(g,0,92,60,58,'#343741',1);rect(g,0,91,60,2,'#8c909b',.55);
+    rect(g,8,104,44,2,'#5f6470',1);rect(g,11,109,38,2,'#242730',1);
+    rect(g,18,116,24,34,'#14161c',1);rect(g,16,113,28,3,'#6f737f',1);
+    rect(g,19,115,22,1,'#a3a5ae',.4);rect(g,20,121,20,29,'#1b1c23',1);
+    // arco e porta.
+    rect(g,25,118,10,3,'#3d404b',1);rect(g,23,121,14,29,'#1e2028',1);rect(g,28,124,4,26,'#090a0e',1);
+    rect(g,24,121,12,1,'#818592',.32);drawText('DESCANSE',30,99,1,'#b0b0ba','center');
+    // Vinha / rachaduras decorativas pequenas.
+    rect(g,6,98,1,25,'#1c1e25',.8);rect(g,52,101,1,22,'#1c1e25',.8);
+  };
+
+  // ---------- GAME 2: iluminação, névoa e composição ----------
+  Game.prototype.drawGame2=function(){
+    const t=this.t,m=this.map;
+    const sky=ctx.createLinearGradient(0,0,0,H);sky.addColorStop(0,'#060912');sky.addColorStop(.52,'#111625');sky.addColorStop(1,'#20202a');ctx.fillStyle=sky;ctx.fillRect(0,0,W,H);
+    // Lua e halo.
+    const mx=Math.round(246-this.cam*.045),my=27;
+    const halo=ctx.createRadialGradient(mx,my,2,mx,my,36);halo.addColorStop(0,'rgba(218,228,255,.20)');halo.addColorStop(1,'rgba(160,176,215,0)');ctx.fillStyle=halo;ctx.fillRect(mx-38,my-38,76,76);
+    ctx.fillStyle='#e4e7f0';ctx.beginPath();ctx.arc(mx,my,11,0,Math.PI*2);ctx.fill();
+    rect(ctx,mx-4,my-3,3,2,'#c5cad7',.6);rect(ctx,mx+3,my+3,2,2,'#c5cad7',.5);
+    // Estrelas com variação discreta.
+    for(let i=0;i<62;i++){
+      const sx=((h2(i,11)%720-this.cam*.18)%W+W)%W,sy=10+(h2(i,29)%73),tw=.25+.25*Math.sin(t*.03+i);
+      rect(ctx,sx,sy, i%11===0?2:1,1,'#d8dfef',tw);
+    }
+    // Colinas em três planos.
+    for(let p=0;p<3;p++){
+      ctx.fillStyle=p===0?'#141721':p===1?'#171a24':'#1e202b';ctx.globalAlpha=.95-.12*p;
+      for(let x=0;x<W;x+=2){const wx=x+this.cam*(.25+p*.05);const y=103+p*5+Math.sin(wx*.012+p)*4+Math.sin(wx*.026)*2;ctx.fillRect(x,y,2,1);}ctx.globalAlpha=1;
+    }
+
+    let shx=0,shy=0;if(this.shake>0){shx=(Math.random()-.5)*this.shake*.8;shy=(Math.random()-.5)*this.shake*.8;}
+    ctx.save();ctx.translate(Math.round(-this.cam+shx),Math.round(shy));
+    m.draw(this.cam,t);
+    // Névoa baixa atrás das entidades.
+    for(let i=0;i<8;i++){const fx=((i*97+t*(.08+(i%3)*.03))%(W+100))-50,fy=126+(i%4)*8;const fw=50+(i*13)%42;rect(ctx,fx+this.cam,fy,fw,2,'#8d92a1',.035);}
+    for(const s of this.skels)this.drawSkel(s);
+    for(const s of this.skels)this.drawBubble(s);
+    if(!this.player.hiding){
+      if(this.invis.active>0){ctx.globalAlpha=.26;this.player.draw();ctx.globalAlpha=1;}
+      else this.player.draw();
+    }
+    this.particles.draw(this.cam);
+    ctx.restore();
+
+    // Névoa em primeiro plano.
+    for(let i=0;i<14;i++){
+      const fx=((i*79+t*(.12+(i%4)*.05))%(W+90))-45,fy=133+(i%5)*4,fw=35+(i*17)%35;
+      rect(ctx,fx,fy,fw,2,'#a0a7b8',.035);if(i%2===0)rect(ctx,fx+8,fy+2,fw-15,1,'#9aa1b0',.025);
+    }
+    for(const dd of this.dust)rect(ctx,dd.x,dd.y,1,1,'#bcc1ce',.18);
+
+    // Vinheta e cone de luz do personagem.
+    const lx=Math.round(this.player.cx-this.cam),ly=Math.round(this.player.cy);
+    const light=ctx.createRadialGradient(lx,ly,3,lx,ly,90);light.addColorStop(0,'rgba(226,236,255,.16)');light.addColorStop(.34,'rgba(180,196,226,.07)');light.addColorStop(1,'rgba(0,0,0,0)');ctx.fillStyle=light;ctx.fillRect(0,0,W,H);
+    const danger=this.skels.length?this.skels.reduce((min,s)=>Math.min(min,Math.abs(s.x-this.player.cx)),999):999;
+    if(danger<120&&!this.player.hiding){const a=(1-danger/120)*.12;rect(ctx,0,0,W,H,'#9b2433',a);}
+
+    ctx.drawImage(this.vig,0,0);
+    this.drawObjectiveHUD();this.drawInvisHUD();this.drawHideIndicator();this.drawDialog();this.drawToast();
+    if(this.introT<200)this.drawLevelIntro();
+    ctx.drawImage(this.scanlines,0,0);this.glitchFx();if(this.cine.active)this.drawCine();this.whiteout();
+    if(this.isTouch&&!this.dialog.active&&!this.cine.active)this.drawTouch();
+  };
+
+  // HUD mais legível sem perder a estética do jogo.
+  Game.prototype.drawObjectiveHUD=function(){
+    const t=this.t,obj=this.objective||(this.level===1?(this.hasKey?'ABRA O PORTAO':'ENCONTRE A CHAVE'):'SAIA DO CEMITERIO');
+    const w=Math.max(104,textW(obj,1)+30),h=16,x=5,y=5;
+    rect(ctx,x+2,y+2,w,h,'#000000',.32);rect(ctx,x,y,w,h,'#0c0e16',.94);
+    const c=this.sound.intense?((t>>3)%2?'#e25b65':'#ff9aa0'):'#a6b1c7';
+    rect(ctx,x,y,w,1,c,.9);rect(ctx,x,y+h-1,w,1,'#2e3442',1);rect(ctx,x,y,1,h,c,.65);rect(ctx,x+w-1,y,1,h,c,.65);
+    rect(ctx,x+4,y+4,7,8,c,.95);rect(ctx,x+6,y+6,3,3,'#07080d',1);drawText(obj,x+15,y+5,1,'#f2f4fa');
+    if(this.level===2&&this.map){const progress=Math.min(1,this.player.x/1200);rect(ctx,x,y+h+2,w,3,'#11141c',1);rect(ctx,x+1,y+h+3,Math.floor((w-2)*progress),1,c,.95);}
+  };
+
+  // ---------- ÁUDIO: ambiente do cemitério ----------
+  const __baseTick=Sound.prototype.tick;
+  Sound.prototype.tick=function(){
+    __baseTick.call(this);
+    if(!this.ok||!this.musicOn)return;
+    this._amb=(this._amb||0)+1;
+    if(this._amb%150===0)this.windS();
+    if(game&&game.level===2&&this._amb%220===0)this.voiceMurmurS();
+    if(game&&game.level===2&&this.intense&&this._amb%90===0)this.metalRattleS();
+  };
+  Sound.prototype.cemeteryGate=function(){
+    if(!this.ok)return;this.tone(58,1.1,{type:'sine',v:.16,slide:35});this.tone(110,0.5,{type:'triangle',v:.05,slide:70});
+  };
+
+  // ---------- NÍVEL 1: acabamento visual extra ----------
+  const __baseGame1=Game.prototype.drawGame1;
+  Game.prototype.drawGame1=function(){
+    __baseGame1.call(this);
+    const px=clamp(this.player.cx-this.cam,0,W), py=clamp(this.player.cy,0,H);
+    const light=ctx.createRadialGradient(px,py,4,px,py,78);light.addColorStop(0,'rgba(220,235,255,.10)');light.addColorStop(1,'rgba(0,0,0,0)');ctx.fillStyle=light;ctx.fillRect(0,0,W,H);
+    rect(ctx,0,0,W,H,'#050611',.08);
+  };
+
+  // V5 visual marker in document title.
+  try{document.title='OTHER SIDE — V5.0 POLISHED';}catch(e){}
+})();
 
 let game;
 game=new Game();
