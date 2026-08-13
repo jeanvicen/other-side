@@ -110,7 +110,7 @@ function textSources(text,sc,x,y){
 }
 
 class ParticleSystem{
-  constructor(){this.particles=[];this.maxParticles=400;}
+  constructor(){this.particles=[];this.maxParticles=500;}
   add(p){if(this.particles.length<this.maxParticles)this.particles.push(p);}
   puff(x,y,n,col){
     for(let i=0;i<n;i++){
@@ -175,7 +175,6 @@ class ParticleSystem{
         gravity:0.12,type:'death'});
     }
   }
-  // Partículas de remontagem do fantasminha
   assemble(x,y,n){
     for(let i=0;i<n;i++){
       const a=Math.random()*Math.PI*2,s=rng(3,6);
@@ -211,7 +210,6 @@ class ParticleSystem{
         ctx.save();ctx.translate(sx,sy);ctx.rotate(p.rotation);
         ctx.fillRect(-sz/2,-1,sz,2);ctx.restore();
       }else if(p.type==='assemble'){
-        // Partículas convergindo para formar o fantasma
         const progress=1-alpha;
         ctx.globalAlpha=alpha;
         ctx.fillRect(sx,sy,sz,sz);
@@ -231,7 +229,7 @@ class ParticleSystem{
 class Sound{
   constructor(){
     this.ctx=null;this.ok=false;this.musicOn=true;this.intense=false;
-    this.step=0;this.nextT=0;this.bar=0;this.bpm=110;
+    this.step=0;this.nextT=0;this.bar=0;this.bpm=95;
     this.tryLoad();
   }
   tryLoad(){try{const v=localStorage.getItem('os_music');if(v!==null)this.musicOn=v==='1';}catch(e){}}
@@ -247,10 +245,6 @@ class Sound{
     this.comp.connect(this.master);
     this.mus=c.createGain();this.mus.gain.value=this.musicOn?0.9:0;
     this.mus.connect(this.comp);
-    this.drums=c.createGain();this.drums.gain.value=1.1;this.drums.connect(this.comp);
-    this.bass=c.createGain();this.bass.gain.value=1.0;this.bass.connect(this.comp);
-    this.guit=c.createGain();this.guit.gain.value=0.8;this.guit.connect(this.comp);
-    this.guit2=c.createGain();this.guit2.gain.value=0.6;this.guit2.connect(this.comp);
     this.sfxG=c.createGain();this.sfxG.gain.value=0.9;this.sfxG.connect(this.master);
     this.ambG=c.createGain();this.ambG.gain.value=0.4;this.ambG.connect(this.master);
     this.ok=true;this.nextT=c.currentTime+0.15;
@@ -260,10 +254,6 @@ class Sound{
     try{localStorage.setItem('os_music',v?'1':'0');}catch(e){}
     if(this.ok){
       this.mus.gain.setTargetAtTime(v?0.9:0,this.ctx.currentTime,0.15);
-      this.drums.gain.setTargetAtTime(v?1.1:0,this.ctx.currentTime,0.15);
-      this.bass.gain.setTargetAtTime(v?1.0:0,this.ctx.currentTime,0.15);
-      this.guit.gain.setTargetAtTime(v?0.8:0,this.ctx.currentTime,0.15);
-      this.guit2.gain.setTargetAtTime(v?0.6:0,this.ctx.currentTime,0.15);
     }
   }
   setIntense(v){this.intense=v;}
@@ -281,191 +271,82 @@ class Sound{
     }
   }
   schedBeat(s,t){
-    if(s%16===0||s%16===8)this.kick(t);
-    if(this.intense&&(s%16===6||s%16===14))this.kick(t);
-    if(s%16===4||s%16===12)this.snare(t);
-    if(s%2===0)this.hihat(t,s%4===2);
-    if(this.intense&&s%2===1)this.ride(t);
-    const bassNotes=[82.41,82.41,98.00,110.00];
-    if(s%4===0){
-      const note=bassNotes[Math.floor(s/16)%bassNotes.length];
-      this.rockBass(note,t,this.intense?0.3:0.4);
-    }
-    if(this.intense&&s%2===0){
-      const note=bassNotes[Math.floor(s/16)%bassNotes.length];
-      this.rockBass(note,t,0.15);
-    }
-    // Power chord + guitarra rítmica
+    // Música ambiente misteriosa para menu/loading
+    // Pad atmosférico
     if(s%16===0){
-      const chordProg=[[82.41,123.47],[65.41,98.00],[98.00,146.83],[73.42,110.00]];
+      const chordProg=[[220,277.18,329.63],[196,246.94,293.66],[246.94,311.13,369.99],[174.61,220,261.63]];
       const chord=chordProg[this.bar%4];
-      this.powerChord(chord,t,this.intense?0.5:0.7);
+      this.atmosphericPad(chord,t);
     }
-    // Guitarra rítmica extra
-    if(s%8===0||s%8===3||s%8===6){
-      const notes=[82.41,110,146.83];
-      this.rhythmGuitar(notes[(s/8|0)%3],t);
+    // Arpejo sutil
+    if(s%4===0){
+      const notes=[440,523.25,587.33,659.25,783.99,659.25,587.33,523.25];
+      const note=notes[(s/4)%notes.length];
+      this.arpeggio(note,t);
     }
-    // Guitar lead melódico
-    if(this.intense&&s%8===6&&Math.random()<0.3){
-      const lead=[329.63,392.00,440.00,493.88,587.33];
-      this.leadGuitar(lead[(Math.random()*lead.length)|0],t);
+    // Bass profundo
+    if(s%16===0){
+      const bassNotes=[110,98,116.54,82.41];
+      this.ambientBass(bassNotes[Math.floor(s/16)%bassNotes.length],t);
     }
-    if(s===48&&Math.random()<0.2)this.horrorSting(t);
-    if(s===0&&this.bar%2===0)this.ambientDrone(t);
+    // Percussão suave
+    if(s%8===0)this.softPerc(t);
+    if(s%16===4)this.softPerc(t,0.06);
   }
-  kick(t){
-    const c=this.ctx,o=c.createOscillator(),g=c.createGain();
-    o.type='sine';o.frequency.setValueAtTime(120,t);
-    o.frequency.exponentialRampToValueAtTime(40,t+0.12);
-    g.gain.setValueAtTime(0.9,t);
-    g.gain.exponentialRampToValueAtTime(0.001,t+0.25);
-    o.connect(g);g.connect(this.drums);o.start(t);o.stop(t+0.3);
-    const o2=c.createOscillator(),g2=c.createGain();
-    o2.type='square';o2.frequency.setValueAtTime(1200,t);
-    o2.frequency.exponentialRampToValueAtTime(80,t+0.01);
-    g2.gain.setValueAtTime(0.15,t);
-    g2.gain.exponentialRampToValueAtTime(0.001,t+0.02);
-    o2.connect(g2);g2.connect(this.drums);o2.start(t);o2.stop(t+0.03);
-  }
-  snare(t){
+  atmosphericPad(notes,t){
     const c=this.ctx;
-    const o=c.createOscillator(),g=c.createGain();
-    o.type='triangle';o.frequency.setValueAtTime(220,t);
-    o.frequency.exponentialRampToValueAtTime(120,t+0.08);
-    g.gain.setValueAtTime(0.4,t);
-    g.gain.exponentialRampToValueAtTime(0.001,t+0.18);
-    o.connect(g);g.connect(this.drums);o.start(t);o.stop(t+0.2);
-    const buf=c.createBuffer(1,c.sampleRate*0.2,c.sampleRate);
-    const d=buf.getChannelData(0);
-    for(let i=0;i<d.length;i++)d[i]=(Math.random()*2-1)*0.6;
-    const n=c.createBufferSource();n.buffer=buf;
-    const f=c.createBiquadFilter();f.type='highpass';f.frequency.value=1500;
-    const gn=c.createGain();gn.gain.setValueAtTime(0.5,t);
-    gn.gain.exponentialRampToValueAtTime(0.001,t+0.15);
-    n.connect(f);f.connect(gn);gn.connect(this.drums);
-    n.start(t);n.stop(t+0.2);
-  }
-  hihat(t,open){
-    const c=this.ctx;
-    const buf=c.createBuffer(1,c.sampleRate*(open?0.15:0.04),c.sampleRate);
-    const d=buf.getChannelData(0);
-    for(let i=0;i<d.length;i++)d[i]=(Math.random()*2-1);
-    const n=c.createBufferSource();n.buffer=buf;
-    const f=c.createBiquadFilter();f.type='highpass';f.frequency.value=7000;
-    const g=c.createGain();g.gain.setValueAtTime(open?0.2:0.15,t);
-    g.gain.exponentialRampToValueAtTime(0.001,t+(open?0.15:0.04));
-    n.connect(f);f.connect(g);g.connect(this.drums);
-    n.start(t);n.stop(t+0.2);
-  }
-  ride(t){
-    const c=this.ctx;
-    const buf=c.createBuffer(1,c.sampleRate*0.3,c.sampleRate);
-    const d=buf.getChannelData(0);
-    for(let i=0;i<d.length;i++)d[i]=(Math.random()*2-1)*0.5;
-    const n=c.createBufferSource();n.buffer=buf;
-    const f=c.createBiquadFilter();f.type='bandpass';f.frequency.value=8500;f.Q.value=3;
-    const g=c.createGain();g.gain.setValueAtTime(0.12,t);
-    g.gain.exponentialRampToValueAtTime(0.001,t+0.3);
-    n.connect(f);f.connect(g);g.connect(this.drums);
-    n.start(t);n.stop(t+0.35);
-  }
-  rockBass(f,t,dur){
-    const c=this.ctx;
-    const o=c.createOscillator(),o2=c.createOscillator();
-    const g=c.createGain();
-    const dist=c.createWaveShaper();
-    const flt=c.createBiquadFilter();
-    o.type='sawtooth';o.frequency.value=f;
-    o2.type='square';o2.frequency.value=f*0.5;
-    const curve=new Float32Array(256);
-    for(let i=0;i<256;i++){const x=(i/128)-1;curve[i]=Math.tanh(x*3);}
-    dist.curve=curve;
-    flt.type='lowpass';flt.frequency.value=800;
-    g.gain.setValueAtTime(0.001,t);
-    g.gain.linearRampToValueAtTime(0.5,t+0.01);
-    g.gain.exponentialRampToValueAtTime(0.001,t+dur);
-    o.connect(dist);o2.connect(dist);dist.connect(flt);flt.connect(g);g.connect(this.bass);
-    o.start(t);o2.start(t);o.stop(t+dur+0.05);o2.stop(t+dur+0.05);
-  }
-  powerChord(notes,t,dur){
-    const c=this.ctx;
-    const curve=new Float32Array(512);
-    for(let i=0;i<512;i++){const x=(i/256)-1;curve[i]=Math.tanh(x*5);}
     for(const f of notes){
-      const o1=c.createOscillator(),o2=c.createOscillator();
-      o1.type='sawtooth';o1.frequency.value=f;
-      o2.type='sawtooth';o2.frequency.value=f*1.005;
-      const dist=c.createWaveShaper();dist.curve=curve;
-      const flt=c.createBiquadFilter();flt.type='lowpass';
-      flt.frequency.setValueAtTime(2800,t);
-      flt.frequency.exponentialRampToValueAtTime(900,t+dur);
+      const o=c.createOscillator(),o2=c.createOscillator();
       const g=c.createGain();
-      g.gain.setValueAtTime(0.001,t);
-      g.gain.linearRampToValueAtTime(0.18,t+0.02);
-      g.gain.setValueAtTime(0.18,t+dur-0.1);
-      g.gain.exponentialRampToValueAtTime(0.001,t+dur);
-      o1.connect(dist);o2.connect(dist);dist.connect(flt);flt.connect(g);g.connect(this.guit);
-      o1.start(t);o2.start(t);o1.stop(t+dur+0.05);o2.stop(t+dur+0.05);
+      const flt=c.createBiquadFilter();
+      o.type='sine';o.frequency.value=f;
+      o2.type='sine';o2.frequency.value=f*1.005;
+      flt.type='lowpass';flt.frequency.value=800;flt.Q.value=2;
+      g.gain.setValueAtTime(0,t);
+      g.gain.linearRampToValueAtTime(0.04,t+0.3);
+      g.gain.setValueAtTime(0.04,t+1.8);
+      g.gain.exponentialRampToValueAtTime(0.001,t+2.5);
+      o.connect(flt);o2.connect(flt);flt.connect(g);g.connect(this.mus);
+      o.start(t);o2.start(t);o.stop(t+2.6);o2.stop(t+2.6);
     }
   }
-  rhythmGuitar(f,t){
+  arpeggio(f,t){
     const c=this.ctx;
-    const o=c.createOscillator(),o2=c.createOscillator();
-    o.type='sawtooth';o.frequency.value=f*2;
-    o2.type='square';o2.frequency.value=f*2*0.998;
-    const curve=new Float32Array(256);
-    for(let i=0;i<256;i++){const x=(i/128)-1;curve[i]=Math.tanh(x*4);}
-    const dist=c.createWaveShaper();dist.curve=curve;
-    const flt=c.createBiquadFilter();flt.type='lowpass';flt.frequency.value=2000;flt.Q.value=2;
+    const o=c.createOscillator();
     const g=c.createGain();
-    g.gain.setValueAtTime(0.001,t);
-    g.gain.linearRampToValueAtTime(0.08,t+0.01);
-    g.gain.exponentialRampToValueAtTime(0.001,t+0.15);
-    o.connect(dist);o2.connect(dist);dist.connect(flt);flt.connect(g);g.connect(this.guit2);
-    o.start(t);o2.start(t);o.stop(t+0.2);o2.stop(t+0.2);
-  }
-  leadGuitar(f,t){
-    const c=this.ctx;
-    const o=c.createOscillator(),o2=c.createOscillator();
-    o.type='sawtooth';o.frequency.value=f;
-    o2.type='square';o2.frequency.value=f*2;
-    const vib=c.createOscillator(),vg=c.createGain();
-    vib.frequency.value=5;vg.gain.value=4;
-    vib.connect(vg);vg.connect(o.frequency);
-    const flt=c.createBiquadFilter();flt.type='lowpass';flt.frequency.value=3000;flt.Q.value=4;
-    const g=c.createGain();
-    g.gain.setValueAtTime(0.001,t);
-    g.gain.linearRampToValueAtTime(0.1,t+0.02);
-    g.gain.exponentialRampToValueAtTime(0.001,t+0.4);
-    o.connect(flt);o2.connect(flt);flt.connect(g);g.connect(this.guit);
-    o.start(t);o2.start(t);vib.start(t);
-    o.stop(t+0.45);o2.stop(t+0.45);vib.stop(t+0.45);
-  }
-  horrorSting(t){
-    const c=this.ctx;
-    [196,233.08,311.13].forEach(f=>{
-      const o=c.createOscillator(),g=c.createGain();
-      o.type='sawtooth';o.frequency.value=f;
-      const flt=c.createBiquadFilter();flt.type='bandpass';flt.frequency.value=800;flt.Q.value=8;
-      g.gain.setValueAtTime(0.001,t);
-      g.gain.linearRampToValueAtTime(0.08,t+0.1);
-      g.gain.exponentialRampToValueAtTime(0.001,t+1.5);
-      o.connect(flt);flt.connect(g);g.connect(this.mus);
-      o.start(t);o.stop(t+1.6);
-    });
-  }
-  ambientDrone(t){
-    const c=this.ctx;
-    const o=c.createOscillator();o.type='sawtooth';o.frequency.value=41.2;
-    const lfo=c.createOscillator();lfo.frequency.value=0.2;
-    const lg=c.createGain();lg.gain.value=8;lfo.connect(lg);lg.connect(o.frequency);
-    const flt=c.createBiquadFilter();flt.type='lowpass';flt.frequency.value=300;flt.Q.value=6;
-    const g=c.createGain();g.gain.setValueAtTime(0,t);
-    g.gain.linearRampToValueAtTime(0.1,t+0.5);
-    g.gain.exponentialRampToValueAtTime(0.001,t+3);
+    const flt=c.createBiquadFilter();
+    o.type='sine';o.frequency.value=f*2;
+    flt.type='lowpass';flt.frequency.value=1200;flt.Q.value=3;
+    g.gain.setValueAtTime(0,t);
+    g.gain.linearRampToValueAtTime(0.03,t+0.05);
+    g.gain.exponentialRampToValueAtTime(0.001,t+0.6);
     o.connect(flt);flt.connect(g);g.connect(this.mus);
-    o.start(t);lfo.start(t);o.stop(t+3.1);lfo.stop(t+3.1);
+    o.start(t);o.stop(t+0.7);
+  }
+  ambientBass(f,t){
+    const c=this.ctx;
+    const o=c.createOscillator();
+    const g=c.createGain();
+    const flt=c.createBiquadFilter();
+    o.type='sine';o.frequency.value=f;
+    flt.type='lowpass';flt.frequency.value=300;flt.Q.value=2;
+    g.gain.setValueAtTime(0,t);
+    g.gain.linearRampToValueAtTime(0.08,t+0.1);
+    g.gain.exponentialRampToValueAtTime(0.001,t+2);
+    o.connect(flt);flt.connect(g);g.connect(this.mus);
+    o.start(t);o.stop(t+2.1);
+  }
+  softPerc(t,v){
+    const c=this.ctx;
+    const buf=c.createBuffer(1,c.sampleRate*0.1,c.sampleRate);
+    const d=buf.getChannelData(0);
+    for(let i=0;i<d.length;i++)d[i]=(Math.random()*2-1)*0.15;
+    const n=c.createBufferSource();n.buffer=buf;
+    const f=c.createBiquadFilter();f.type='highpass';f.frequency.value=2000;
+    const g=c.createGain();g.gain.setValueAtTime(v||0.04,t);
+    g.gain.exponentialRampToValueAtTime(0.001,t+0.1);
+    n.connect(f);f.connect(g);g.connect(this.mus);
+    n.start(t);n.stop(t+0.15);
   }
   tone(f,d,o){
     if(!this.ok)return;o=o||{};
@@ -481,13 +362,17 @@ class Sound{
   back(){this.tone(400,0.07,{v:0.09});this.tone(250,0.09,{v:0.09,at:0.06});}
   jumpS(){this.tone(170,0.14,{slide:330,v:0.09});}
   landS(){this.tone(95,0.06,{type:'triangle',v:0.08});}
-  stepS(i){this.tone(i?1900:2200,0.015,{v:0.014});this.tone(i?140:160,0.03,{type:'triangle',v:0.04});}
+  stepS(i){
+    this.tone(i?1900:2200,0.015,{v:0.014});
+    this.tone(i?140:160,0.03,{type:'triangle',v:0.04});
+    // Som de piso de concreto com reverb
+    this.tone(i?80:90,0.08,{type:'sine',v:0.02});
+  }
   keyS(){[660,880,1175,1570].forEach((f,i)=>this.tone(f,0.09,{type:'triangle',v:0.12,at:i*0.07}));}
   lockedS(){this.tone(120,0.1,{v:0.15});this.tone(90,0.13,{v:0.12,at:0.09});}
   openS(){
     this.tone(70,1.0,{type:'sawtooth',v:0.16,slide:42});
     [1500,1150,900].forEach((f,i)=>this.tone(f,0.04,{v:0.06,at:0.15+i*0.12}));
-    // Som de porta rangendo
     this.tone(180,0.8,{type:'sawtooth',v:0.08,slide:120,at:0.3});
   }
   stingS(){[220,233.08,440].forEach(f=>this.tone(f,0.9,{type:'sawtooth',v:0.045}));this.tone(1200,0.4,{type:'sine',v:0.03,slide:850});}
@@ -497,7 +382,6 @@ class Sound{
   crackS(){
     this.tone(120,0.3,{type:'sawtooth',v:0.2,slide:40});
     [2400,1900,1500].forEach((f,i)=>this.tone(f,0.03,{v:0.07,at:i*0.05}));
-    // Som de madeira quebrando
     this.tone(80,0.5,{type:'square',v:0.15,slide:40,at:0.1});
     this.tone(60,0.8,{type:'sine',v:0.2,at:0.2});
   }
@@ -520,7 +404,7 @@ class Sound{
     [880,660,440,220].forEach((f,i)=>this.tone(f,0.3,{type:'square',v:0.08,at:i*0.15}));
   }
   checkpointS(){[523,659,784].forEach((f,i)=>this.tone(f,0.2,{type:'sine',v:0.08,at:i*0.12}));}
-  // Sons de cenário
+  // Sons de cenário aprimorados
   doorCreak(){
     if(!this.ok)return;
     const c=this.ctx,t=c.currentTime;
@@ -535,7 +419,6 @@ class Sound{
   skelTalk(){
     if(!this.ok)return;
     const c=this.ctx,t=c.currentTime;
-    // Voz de esqueleto - cliques e assobios
     [800,1200,600,900].forEach((f,i)=>{
       this.tone(f+Math.random()*100,0.05,{type:'square',v:0.03,at:i*0.08});
     });
@@ -543,13 +426,11 @@ class Sound{
   bridgeCrash(){
     if(!this.ok)return;
     const c=this.ctx,t=c.currentTime;
-    // Som dramático de ponte desabando
     this.tone(60,1.5,{type:'sine',v:0.3,slide:30});
     this.tone(40,2,{type:'sawtooth',v:0.2,at:0.2});
     [200,150,100,80].forEach((f,i)=>{
       this.tone(f,0.1,{type:'square',v:0.1,at:0.3+i*0.15});
     });
-    // Madeira quebrando
     for(let i=0;i<5;i++){
       this.tone(1000+Math.random()*500,0.03,{type:'triangle',v:0.05,at:0.5+i*0.2});
     }
@@ -557,11 +438,83 @@ class Sound{
   assembleS(){
     if(!this.ok)return;
     const c=this.ctx,t=c.currentTime;
-    // Som místico de remontagem
     [440,554,659,880].forEach((f,i)=>{
       this.tone(f,0.3,{type:'sine',v:0.08,at:i*0.15});
     });
     this.tone(220,1.5,{type:'triangle',v:0.1,slide:440});
+  }
+  // Novos sons ambientais
+  windAmbient(){
+    if(!this.ok)return;
+    const c=this.ctx,t=c.currentTime;
+    const buf=c.createBuffer(1,c.sampleRate*2,c.sampleRate);
+    const d=buf.getChannelData(0);
+    for(let i=0;i<d.length;i++)d[i]=(Math.random()*2-1)*0.08;
+    const n=c.createBufferSource();n.buffer=buf;
+    const f=c.createBiquadFilter();f.type='lowpass';f.frequency.value=400;f.Q.value=2;
+    const g=c.createGain();g.gain.setValueAtTime(0,t);
+    g.gain.linearRampToValueAtTime(0.03,t+0.5);
+    g.gain.exponentialRampToValueAtTime(0.001,t+2);
+    n.connect(f);f.connect(g);g.connect(this.ambG);
+    n.start(t);n.stop(t+2);
+  }
+  dripSound(){
+    if(!this.ok)return;
+    const c=this.ctx,t=c.currentTime;
+    this.tone(1800,0.08,{type:'sine',v:0.04});
+    this.tone(1200,0.12,{type:'sine',v:0.03,at:0.05});
+  }
+  machineryHum(){
+    if(!this.ok)return;
+    const c=this.ctx,t=c.currentTime;
+    const o=c.createOscillator();
+    const g=c.createGain();
+    const flt=c.createBiquadFilter();
+    o.type='sawtooth';o.frequency.value=60;
+    flt.type='lowpass';flt.frequency.value=200;flt.Q.value=4;
+    g.gain.setValueAtTime(0,t);
+    g.gain.linearRampToValueAtTime(0.02,t+0.2);
+    g.gain.exponentialRampToValueAtTime(0.001,t+1.5);
+    o.connect(flt);flt.connect(g);g.connect(this.ambG);
+    o.start(t);o.stop(t+1.6);
+  }
+  messageBeep(){
+    if(!this.ok)return;
+    const c=this.ctx,t=c.currentTime;
+    this.tone(880,0.05,{type:'sine',v:0.06});
+    this.tone(1320,0.06,{type:'sine',v:0.05,at:0.08});
+  }
+  distantThunder(){
+    if(!this.ok)return;
+    const c=this.ctx,t=c.currentTime;
+    const buf=c.createBuffer(1,c.sampleRate*1.5,c.sampleRate);
+    const d=buf.getChannelData(0);
+    for(let i=0;i<d.length;i++)d[i]=(Math.random()*2-1)*0.15;
+    const n=c.createBufferSource();n.buffer=buf;
+    const f=c.createBiquadFilter();f.type='lowpass';f.frequency.value=300;f.Q.value=2;
+    const g=c.createGain();g.gain.setValueAtTime(0,t);
+    g.gain.linearRampToValueAtTime(0.04,t+0.3);
+    g.gain.exponentialRampToValueAtTime(0.001,t+1.5);
+    n.connect(f);f.connect(g);g.connect(this.ambG);
+    n.start(t);n.stop(t+1.6);
+  }
+  ambientLoop(){
+    if(!this.ok)return;
+    const c=this.ctx,t=c.currentTime;
+    // Loop de som ambiente contínuo
+    const o=c.createOscillator();
+    const g=c.createGain();
+    const flt=c.createBiquadFilter();
+    o.type='sine';o.frequency.value=45;
+    const lfo=c.createOscillator();lfo.frequency.value=0.1;
+    const lg=c.createGain();lg.gain.value=5;lfo.connect(lg);lg.connect(o.frequency);
+    flt.type='lowpass';flt.frequency.value=150;flt.Q.value=3;
+    g.gain.setValueAtTime(0,t);
+    g.gain.linearRampToValueAtTime(0.015,t+0.5);
+    g.gain.setValueAtTime(0.015,t+2.5);
+    g.gain.exponentialRampToValueAtTime(0.001,t+3);
+    o.connect(flt);flt.connect(g);g.connect(this.ambG);
+    o.start(t);lfo.start(t);o.stop(t+3.1);lfo.stop(t+3.1);
   }
 }
 
@@ -616,10 +569,7 @@ class Ghost{
       m({tail:TJ3,mouth:'o'}),m({tail:TJ}),m({tail:TJ2}),m({tail:T1})
     ];
     this.frames.hide=[this.mkHide(0),this.mkHide(1),this.mkHide(2)];
-    
-    // Peças do fantasma despedaçado (para intro)
     this.frames.pieces=this.mkPieces();
-    
     const rows=this.compose({tail:T1});
     const c=document.createElement('canvas');c.width=16;c.height=16;
     const g=c.getContext('2d');
@@ -630,7 +580,6 @@ class Ghost{
     this.sil=c;
   }
   mkPieces(){
-    // Criar peças do fantasma "despedaçado"
     const pieces=[];
     const positions=[
       {x:0,y:0},{x:5,y:0},{x:10,y:0},
@@ -745,46 +694,80 @@ class Map{
     const g=ctx;
     const x0=Math.max(0,Math.floor(cam/TILE)-1),x1=Math.min(MW-1,Math.floor((cam+W)/TILE)+1);
     
-    // Fundo com gradiente
+    // Fundo com gradiente melhorado
     const bgGrad=ctx.createLinearGradient(0,0,0,H);
     bgGrad.addColorStop(0,'#1a1a2e');
-    bgGrad.addColorStop(1,'#16213e');
+    bgGrad.addColorStop(0.5,'#16213e');
+    bgGrad.addColorStop(1,'#0f1529');
     ctx.fillStyle=bgGrad;
     ctx.fillRect(0,0,W,H);
     
+    // Textura de fundo detalhada
     g.fillStyle='#4a4a5a';
     for(let tx=x0;tx<=x1;tx++)for(let ty=1;ty<17;ty++){
       const c=this.g[ty*MW+tx];if(c!==0)continue;
       const h=hash(tx,ty);
-      if(h%9===0)g.fillRect(tx*10+(h%8),ty*10+((h>>3)%8),1,1);
-      if(h%23===0)g.fillRect(tx*10+((h>>5)%9),ty*10+((h>>2)%9),2,1);
+      if(h%7===0)g.fillRect(tx*10+(h%8),ty*10+((h>>3)%8),1,1);
+      if(h%13===0)g.fillRect(tx*10+((h>>5)%9),ty*10+((h>>2)%9),2,1);
+      if(h%19===0)g.fillRect(tx*10+((h>>7)%8),ty*10+((h>>4)%8),1,2);
     }
+    
+    // Piso com detalhes melhorados
     g.fillStyle='#3a3a4a';g.fillRect(x0*10,11,(x1-x0+1)*10,2);
+    g.fillStyle='#2a2a3a';
+    for(let tx=x0;tx<=x1;tx++)if(tx%3===0)g.fillRect(tx*10+5,12,1,1);
     g.fillStyle='#000000';
     for(let tx=x0;tx<=x1;tx++)if(tx%4===0)g.fillRect(tx*10+4,11,2,2);
     g.fillStyle='#8888aa';
     for(let tx=x0;tx<=x1;tx++)if(tx%8===0)g.fillRect(tx*10+2,10,1,1);
+    for(let tx=x0;tx<=x1;tx++)if(tx%6===0)g.fillRect(tx*10+7,10,1,1);
+    
+    // Pôsteres melhorados
     for(const p of this.posters){
       const px=p.tx*10,py=p.ty*10;
       if(px<cam-20||px>cam+W+20)continue;
+      // Moldura
+      g.fillStyle='#665544';g.fillRect(px-1,py-1,11,13);
       g.fillStyle='#9999bb';g.fillRect(px,py,9,11);
+      g.fillStyle='#ffffff';g.fillRect(px+1,py+1,7,9);
+      // Texto no pôster
       g.fillStyle='#222233';
       g.fillRect(px+2,py+2,5,1);g.fillRect(px+2,py+4,6,1);g.fillRect(px+2,py+6,4,1);
+      g.fillRect(px+2,py+8,5,1);
     }
+    
+    // Máquinas melhoradas
     for(const m of this.machines){
       if(m.x+m.w<cam-10||m.x>cam+W+10)continue;
+      // Corpo da máquina com mais detalhes
       g.fillStyle='#555566';
       g.fillRect(m.x,m.y,m.w,2);g.fillRect(m.x,m.y,2,m.h);g.fillRect(m.x+m.w-2,m.y,2,m.h);
       g.fillRect(m.x,m.y+m.h-2,m.w,2);
+      // Parafusos
+      g.fillStyle='#888899';
+      g.fillRect(m.x+1,m.y+1,1,1);g.fillRect(m.x+m.w-2,m.y+1,1,1);
+      g.fillRect(m.x+1,m.y+m.h-2,1,1);g.fillRect(m.x+m.w-2,m.y+m.h-2,1,1);
+      // Luzes piscando
       const on=((t+m.x)%60)<30;
       g.fillStyle=on?'#88ff88':'#444455';g.fillRect(m.x+m.w-6,m.y+4,2,2);
+      const on2=((t+m.x+30)%45)<22;
+      g.fillStyle=on2?'#ff8888':'#444455';g.fillRect(m.x+m.w-6,m.y+8,2,2);
+      // Tela
       g.fillStyle='#8888aa';g.fillRect(m.x+5,m.y+10,6,6);
       g.fillStyle='#000000';g.fillRect(m.x+6,m.y+11,4,4);
+      // Texto na tela
+      if(on){
+        g.fillStyle='#88ff88';
+        g.fillRect(m.x+6,m.y+12,2,1);g.fillRect(m.x+6,m.y+14,3,1);
+      }
     }
+    
+    // Saída com detalhes
     g.fillStyle='#1a1a2a';g.fillRect(812,112,36,10);
     g.fillStyle='#8888aa';
     g.fillRect(812,112,36,1);g.fillRect(812,121,36,1);g.fillRect(812,112,1,10);g.fillRect(847,112,1,10);
     drawText("SAIDA>",816,115,1,'#aaaacc');
+    
     for(let tx=x0;tx<=x1;tx++)for(let ty=0;ty<MH;ty++){
       const c=this.g[ty*MW+tx];
       if(c===1)this.drawWall(tx,ty);
@@ -800,55 +783,97 @@ class Map{
   }
   drawWall(tx,ty){
     const x=tx*10,y=ty*10,h=hash(tx,ty),g=ctx;
+    // Parede com textura de tijolos melhorada
     g.fillStyle='#555566';g.fillRect(x,y,10,10);
-    g.fillStyle='#222233';
+    // Tijolos
+    g.fillStyle='#4a4a5a';
     g.fillRect(x,y+4,10,1);
     g.fillRect(x+((h%2)?3:7),y,1,4);
     g.fillRect(x+((h%2)?8:2),y+5,1,5);
+    // Argamassa
+    g.fillStyle='#3a3a4a';
+    if(h%3===0)g.fillRect(x,y+2,2,1);
+    if(h%5===0)g.fillRect(x+7,y+7,2,1);
+    // Sombra e luz
     if(!this.solid(tx,ty-1)){g.fillStyle='#8888aa';g.fillRect(x,y,10,1);}
     if(!this.solid(tx,ty+1)){g.fillStyle='#111122';g.fillRect(x,y+9,10,1);}
+    // Detalhes extras
+    if(h%7===0){
+      g.fillStyle='#666677';
+      g.fillRect(x+(h%8),y+(h%6),1,1);
+    }
   }
   drawCat(tx,ty){
     const x=tx*10,y=ty*10,g=ctx;
+    // Passarela metálica melhorada
     g.fillStyle='#9999bb';g.fillRect(x,y,10,2);
+    g.fillStyle='#aaaacc';g.fillRect(x,y,10,1);
     g.fillStyle='#222233';g.fillRect(x+1,y+1,1,1);g.fillRect(x+8,y+1,1,1);
+    // Suportes
     g.fillStyle='#555566';
     g.fillRect(x,y+2,1,5);g.fillRect(x+9,y+2,1,5);
+    // Grade
+    g.fillStyle='#666677';
     g.fillRect(x+2,y+3,1,1);g.fillRect(x+3,y+4,1,1);g.fillRect(x+4,y+5,1,1);
     g.fillRect(x+7,y+3,1,1);g.fillRect(x+6,y+4,1,1);g.fillRect(x+5,y+5,1,1);
     g.fillRect(x,y+6,10,1);
+    // Parafusos
+    g.fillStyle='#888899';
+    g.fillRect(x+1,y+3,1,1);g.fillRect(x+8,y+3,1,1);
   }
   drawCrate(tx,ty){
     const x=tx*10,y=ty*10,g=ctx;
+    // Caixa de madeira melhorada
     g.fillStyle='#665544';g.fillRect(x,y,10,10);
     g.fillStyle='#887766';
     g.fillRect(x,y,10,1);g.fillRect(x,y+9,10,1);g.fillRect(x,y,1,10);g.fillRect(x+9,y,1,10);
-    g.fillStyle='#332211';
+    // Tábuas
+    g.fillStyle='#554433';
     for(let i=1;i<9;i++){g.fillRect(x+i,y+i,1,1);g.fillRect(x+9-i,y+i,1,1);}
+    // Pregos
+    g.fillStyle='#aaaa88';
+    g.fillRect(x+2,y+2,1,1);g.fillRect(x+7,y+2,1,1);
+    g.fillRect(x+2,y+7,1,1);g.fillRect(x+7,y+7,1,1);
   }
   drawJar(tx,t){
     const x=tx*10+1,y=150,g=ctx;
+    // Jarra de vidro melhorada
     g.fillStyle='#9999bb';g.fillRect(x,y,8,2);
+    g.fillStyle='#aaaacc';g.fillRect(x,y,8,1);
     g.fillStyle='#555566';
     g.fillRect(x,y+2,1,18);g.fillRect(x+7,y+2,1,18);g.fillRect(x,y+19,8,1);
     g.fillRect(x+1,y+12,6,1);
+    // Conteúdo
     g.fillStyle='#556655';
     g.fillRect(x+3,y+8,2,3);g.fillRect(x+2,y+9,1,2);
+    g.fillStyle='#445544';g.fillRect(x+4,y+14,2,2);
+    // Bolha
     const by=168-((t*0.3+tx*17)%14);
     g.fillStyle='#aaffaa';g.fillRect(x+5,y+(by-y)%12+4,1,1);
+    // Reflexo no vidro
+    g.fillStyle='#ffffff';g.globalAlpha=0.2;
+    g.fillRect(x+1,y+4,1,8);
+    g.globalAlpha=1;
   }
   drawConsole(a,t){
     const x=a.x-6,y=158,g=ctx;
+    // Console melhorado
     g.fillStyle='#555566';g.fillRect(x,y,12,12);
+    g.fillStyle='#444455';g.fillRect(x,y,12,1);
     g.fillStyle='#000000';g.fillRect(x+1,y+1,10,6);
     const on=((t+a.x)%46)<26;
     g.fillStyle=on?'#88ff88':'#444455';
     g.fillRect(x+2,y+2,5,1);g.fillRect(x+2,y+4,7,1);
+    // Botões
+    g.fillStyle='#ff4444';g.fillRect(x+8,y+8,2,2);
+    g.fillStyle='#44ff44';g.fillRect(x+4,y+8,2,2);
     if(!a.read){g.fillStyle='#ffff88';if(((t>>3)%2)===0)g.fillRect(a.x-1,y-6,1,2);}
   }
   drawNote(a,t){
     const x=a.x-3,y=a.y-2,g=ctx;
+    // Nota melhorada
     g.fillStyle='#ffffdd';g.fillRect(x,y,7,5);
+    g.fillStyle='#eeeecc';g.fillRect(x,y,7,1);
     g.fillStyle='#cccc88';g.fillRect(x+5,y,2,1);
     g.fillStyle='#222222';
     g.fillRect(x+1,y+1,4,1);g.fillRect(x+1,y+3,5,1);
@@ -857,15 +882,19 @@ class Map{
   drawKey(t){
     if(this.key.taken)return;
     const kx=this.key.x,ky=this.key.y+Math.sin(t*0.08)*2,g=ctx;
-    g.fillStyle='#ffff44';g.globalAlpha=0.3;
-    g.fillRect(kx-6,ky-5,12,10);
+    // Brilho ao redor da chave
+    g.fillStyle='#ffff44';g.globalAlpha=0.25;
+    g.fillRect(kx-7,ky-6,14,12);
     g.globalAlpha=1;
+    // Chave melhorada
     g.fillStyle='#ffff88';
     g.fillRect(kx-4,ky-3,5,5);
-    g.fillStyle='#aa8822';g.fillRect(kx-3,ky-2,3,3);
+    g.fillStyle='#ddaa44';g.fillRect(kx-3,ky-2,3,3);
     g.fillStyle='#ffff88';
     g.fillRect(kx+1,ky-1,6,2);
     g.fillRect(kx+4,ky+1,1,2);g.fillRect(kx+6,ky+1,1,2);
+    // Reflexo
+    g.fillStyle='#ffffff';g.fillRect(kx-3,ky-2,1,1);
   }
   drawDoor(t){
     const d=this.door,g=ctx;
@@ -879,14 +908,22 @@ class Map{
     }
     const off=d.open*d.h,py=d.y-off;
     g.save();g.beginPath();g.rect(d.x,d.y,d.w,d.h);g.clip();
+    // Porta com textura de metal
     g.fillStyle='#665544';g.fillRect(d.x,py,d.w,d.h);
     g.fillStyle='#887766';g.fillRect(d.x,py,d.w,1);
+    g.fillStyle='#554433';g.fillRect(d.x,py+d.h-1,d.w,1);
     g.fillStyle='#222233';g.fillRect(d.x+9,py,2,d.h);
+    // Detalhes da porta
     for(let i=0;i<7;i++){
       g.fillStyle=(i%2===0)?'#222233':'#887766';
       g.fillRect(d.x+i*3,py+35,3,5);
     }
+    // Parafusos
+    g.fillStyle='#aaaa88';
+    g.fillRect(d.x+2,py+5,1,1);g.fillRect(d.x+d.w-3,py+5,1,1);
+    g.fillRect(d.x+2,py+d.h-6,1,1);g.fillRect(d.x+d.w-3,py+d.h-6,1,1);
     g.restore();
+    // Moldura da porta
     g.fillStyle='#887766';
     g.fillRect(d.x-2,d.y-4,d.w+4,3);
     g.fillRect(d.x-2,d.y-4,2,d.h+4);
@@ -956,21 +993,26 @@ class Map2{
     const g=ctx;
     const x0=Math.max(0,Math.floor(cam/TILE)-1),x1=Math.min(MW2-1,Math.floor((cam+W)/TILE)+1);
     
-    // Céu noturno com gradiente
+    // Céu noturno melhorado
     const skyGrad=ctx.createLinearGradient(0,0,0,100);
-    skyGrad.addColorStop(0,'#0a0a1a');
-    skyGrad.addColorStop(0.5,'#1a1a3a');
-    skyGrad.addColorStop(1,'#2a2a4a');
+    skyGrad.addColorStop(0,'#050510');
+    skyGrad.addColorStop(0.4,'#0a0a20');
+    skyGrad.addColorStop(0.7,'#151530');
+    skyGrad.addColorStop(1,'#252545');
     ctx.fillStyle=skyGrad;
     ctx.fillRect(0,0,W,100);
     
+    // Cercas melhoradas
     for(const f of this.fences){
       const fx0=f.x0*10,fx1=f.x1*10;
       if(fx1<cam-20||fx0>cam+W+20)continue;
       g.fillStyle='#443322';
       for(let x=fx0;x<=fx1;x+=6)g.fillRect(x,136,1,14);
       g.fillRect(fx0,140,fx1-fx0,1);
+      g.fillStyle='#554433';g.fillRect(fx0,139,fx1-fx0,1);
     }
+    
+    // Árvores melhoradas
     for(const tx of this.trees){
       const x=tx*10;
       if(x<cam-30||x>cam+W+30)continue;
@@ -980,7 +1022,11 @@ class Map2{
       g.fillRect(x-2,130,7,1);g.fillRect(x-3,127,1,3);
       g.fillRect(x+4,112,2,6);
       g.fillRect(x+8,118,4,1);g.fillRect(x+11,116,1,3);
+      // Galhos extras
+      g.fillRect(x+2,124,3,1);g.fillRect(x+13,118,2,1);
     }
+    
+    // Túmulos melhorados
     for(let i=0;i<this.graves.length;i++){
       const x=this.graves[i]*10;
       if(x<cam-20||x>cam+W+20)continue;
@@ -989,14 +1035,21 @@ class Map2{
         g.fillStyle='#666677';g.fillRect(x+1,140,8,10);g.fillRect(x+2,138,6,2);
         g.fillStyle='#8888aa';g.fillRect(x+2,138,6,1);
         g.fillStyle='#222233';g.fillRect(x+3,143,4,1);g.fillRect(x+3,145,3,1);
+        // Cruz
+        g.fillStyle='#888899';g.fillRect(x+4,139,2,1);g.fillRect(x+4,137,2,3);
       }else if(v===1){
         g.fillStyle='#9999bb';g.fillRect(x+4,136,2,14);g.fillRect(x+1,140,8,2);
+        g.fillStyle='#aaaacc';g.fillRect(x+4,136,2,1);
       }else{
         g.fillStyle='#111122';g.fillRect(x,147,10,3);
         g.fillStyle='#555566';g.fillRect(x+1,145,4,2);
+        // Flores
+        g.fillStyle='#884488';g.fillRect(x+5,144,1,1);g.fillRect(x+6,143,1,2);
       }
     }
     this.drawMausoleum(t);
+    
+    // Chão com textura
     for(let tx=x0;tx<=x1;tx++)for(let ty=15;ty<18;ty++){
       if(this.g[ty*MW2+tx]===1)this.drawDirt(tx,ty);
     }
@@ -1005,6 +1058,10 @@ class Map2{
       if(h%19===0&&!(tx>=63&&tx<=85)){
         g.fillStyle='#776655';
         g.fillRect(tx*10+(h%7),148,2,1);
+      }
+      if(h%23===0&&!(tx>=63&&tx<=85)){
+        g.fillStyle='#665544';
+        g.fillRect(tx*10+(h%8),149,1,1);
       }
     }
     for(let tx=x0;tx<=x1;tx++)for(let ty=12;ty<=14;ty++){
@@ -1016,8 +1073,9 @@ class Map2{
   drawDirt(tx,ty){
     const x=tx*10,y=ty*10,h=hash(tx,ty),g=ctx;
     g.fillStyle='#554433';g.fillRect(x,y,10,10);
-    g.fillStyle='#221100';
+    g.fillStyle='#443322';
     g.fillRect(x+(h%8),y+((h>>2)%8),1,1);
+    if(h%5===0)g.fillRect(x+(h%7),y+(h%6),1,1);
     if(ty===15){
       g.fillStyle='#776655';g.fillRect(x,y,10,1);
       if(h%3===0)g.fillRect(x+(h%8),y-1,1,1);
@@ -1029,6 +1087,8 @@ class Map2{
     g.fillStyle='#222233';g.fillRect(x,y+9,10,1);
     if(!this.solid(tx,ty-1)){g.fillStyle='#8888aa';g.fillRect(x,y,10,1);}
     if(ty===14){g.fillStyle='#222233';g.fillRect(x+4,y+3,2,4);g.fillRect(x+3,y+4,4,1);}
+    // Detalhes
+    g.fillStyle='#555566';g.fillRect(x+1,y+1,1,1);g.fillRect(x+8,y+1,1,1);
   }
   drawCloset(cl,t){
     const g=ctx,x=cl.x,y=cl.y;
@@ -1092,6 +1152,7 @@ class Map2{
     for(let yy=83;yy<92;yy++){const ww=(92-yy)*3;g.fillStyle='#666677';g.fillRect(30-ww,yy,ww*2,1);}
     g.fillStyle='#8888aa';g.fillRect(30-27,83,54,1);
     g.fillStyle='#555566';g.fillRect(0,92,60,58);
+    g.fillStyle='#444455';g.fillRect(0,92,60,1);
     g.fillStyle='#222233';
     for(let y=100;y<150;y+=9)g.fillRect(0,y,60,1);
     g.fillStyle='#8888aa';g.fillRect(0,92,60,1);
@@ -1104,6 +1165,8 @@ class Map2{
     const g=ctx;
     g.fillStyle='#666677';
     g.fillRect(640,150,2,30);g.fillRect(848,150,2,30);
+    g.fillStyle='#555566';
+    g.fillRect(640,150,2,1);g.fillRect(848,150,2,1);
     g.fillStyle='#000000';
     for(let y=152;y<180;y+=4){g.fillRect(640,y,2,1);g.fillRect(848,y+2,2,1);}
   }
@@ -1118,12 +1181,14 @@ class Map2{
       if(this.cracked&&((t+p.tx*7)%40)<3)y+=1;
       g.fillStyle='#665544';g.fillRect(x,y,10,3);
       g.fillStyle='#887766';g.fillRect(x,y,10,1);
+      g.fillStyle='#554433';g.fillRect(x,y+2,10,1);
       g.fillStyle='#221100';g.fillRect(x+9,y,1,3);
     }
   }
   drawGate(t){
     const gt=this.gate,g=ctx;
     g.fillStyle='#666677';g.fillRect(1168,96,12,54);g.fillRect(1200,96,12,54);
+    g.fillStyle='#777788';g.fillRect(1168,96,12,1);g.fillRect(1200,96,12,1);
     g.fillStyle='#222233';
     for(let y=102;y<150;y+=8){g.fillRect(1168,y,12,1);g.fillRect(1200,y,12,1);}
     g.fillStyle='#8888aa';
@@ -1249,7 +1314,7 @@ class Menu{
   constructor(g){
     this.g=g;this.sel=0;this.setSel=0;this.seeded=false;
     this.drips=new Drips();this.parts=[];
-    for(let i=0;i<45;i++)this.parts.push({x:Math.random()*W,y:Math.random()*H,sp:0.12+Math.random()*0.28,c:Math.random()<0.5?'#8888aa':'#ccccff',dr:Math.random()*6});
+    for(let i=0;i<55;i++)this.parts.push({x:Math.random()*W,y:Math.random()*H,sp:0.1+Math.random()*0.25,c:Math.random()<0.5?'#8888aa':'#ccccff',dr:Math.random()*6});
     this.tankT=260;this.tankOn=0;
   }
   enter(){this.sel=0;this.seeded=false;}
@@ -1269,7 +1334,7 @@ class Menu{
   drawBg(t){
     ctx.fillStyle='#0a0a1a';ctx.fillRect(0,0,W,H);
     ctx.fillStyle='#444455';ctx.fillRect(0,150,W,30);
-    ctx.fillStyle='#666677';ctx.fillRect(0,150,W,1);
+    ctx.fillStyle='#555566';ctx.fillRect(0,150,W,1);
     ctx.fillStyle='#444455';
     ctx.fillRect(238,56,54,2);ctx.fillRect(238,56,2,94);ctx.fillRect(290,56,2,94);ctx.fillRect(238,148,54,2);
     ctx.fillRect(262,44,4,12);
@@ -1305,7 +1370,7 @@ class Menu{
       }
     }
     drawText(this.g.isTouch?'TOQUE PARA ESCOLHER':'W/S: NAVEGAR   ENTER: CONFIRMAR',W/2,168,1,'#666677','center');
-    drawText('V5.0',2,174,1,'#666677');
+    drawText('V5.1',2,174,1,'#666677');
   }
   drawSettings(t){
     ctx.fillStyle='#0a0a1a';ctx.fillRect(0,0,W,H);
@@ -1372,9 +1437,8 @@ class Game{
     this.btns={l:{x:6,y:138,w:40,h:36},r:{x:50,y:138,w:40,h:36},a:{x:226,y:136,w:40,h:38},j:{x:270,y:130,w:44,h:46},r2:{x:138,y:138,w:42,h:36}};
     this.buildSkel();this.bindInput();
     this.gameover={active:false,reason:'',t:0,particles:[]};
-    
-    // Estado da intro animada
     this.ghostIntro={active:false,t:0,phase:0,assembled:false};
+    this.ambientTimer=0;
   }
   buildSkel(){
     const SK_A=[
@@ -1430,7 +1494,6 @@ class Game{
       if(this.state==='settings'){this.setTap(p);return;}
       if(this.state==='director'){this.sound.back();this.toMenu();return;}
       if(this.state==='escaped'){this.sound.confirm();this.toMenu();return;}
-      // Pular intro do fantasminha
       if(this.state==='ghostIntro'){this.skipGhostIntro();return;}
     },{passive:false});
     canvas.addEventListener('pointermove',e=>{
@@ -1493,16 +1556,14 @@ class Game{
   toMenu(){this.state='menu';this.menu.enter();this.sound.setIntense(false);this.toastCur=null;this.toastQ=[];}
   skipIntro(){if(this.state==='intro'){this.state='menu';this.menu.enter();}}
   
-  // Intro do fantasminha se montando
   startGhostIntro(){
     this.state='ghostIntro';
     this.ghostIntro={active:true,t:0,phase:0,assembled:false};
     this.sound.assembleS();
-    // Gerar partículas de remontagem
     this.particles.assemble(W/2,H/2,30);
   }
   skipGhostIntro(){
-    if(this.ghostIntro.t<30)return; // Não pode pular muito cedo
+    if(this.ghostIntro.t<30)return;
     this.startGame();
   }
   
@@ -1513,6 +1574,7 @@ class Game{
     const pages=[];
     for(let i=0;i<wrapped.length;i+=3)pages.push(wrapped.slice(i,i+3));
     this.dialog={active:true,pages:pages,page:0,n:0};
+    this.sound.messageBeep();
   }
   advDialog(){
     const d=this.dialog;if(!d||!d.active)return;
@@ -1554,6 +1616,7 @@ class Game{
     this.sound.setIntense(false);
     this.state='game';
     this.objective='ENCONTRE A CHAVE';
+    this.ambientTimer=0;
   }
   retryLevel(){
     this.sound.confirm();
@@ -1695,25 +1758,16 @@ class Game{
   updGhostIntro(P){
     const gi=this.ghostIntro;
     gi.t++;
-    
-    // Fase 0: Peças espalhadas (0-60 frames)
-    // Fase 1: Peças se juntando (60-120 frames)
-    // Fase 2: Fantasma completo com barrinha (120-180 frames)
-    // Fase 3: Começa o jogo (180+ frames)
-    
     if(gi.t>=60&&gi.t<120){
-      // Mais partículas convergindo
       if(gi.t%10===0){
         this.particles.assemble(W/2,H/2,5);
       }
     }
-    
     if(gi.t>=120&&!gi.assembled){
       gi.assembled=true;
       gi.phase=2;
       this.sound.confirm();
     }
-    
     if(gi.t>=180||(P.any&&gi.t>30)){
       this.startGame();
     }
@@ -1721,13 +1775,9 @@ class Game{
   drawGhostIntro(){
     const gi=this.ghostIntro;
     const t=gi.t;
-    
-    // Fundo escuro
     ctx.fillStyle='#000000';
     ctx.fillRect(0,0,W,H);
-    
     if(t<60){
-      // Fase 0: Peças espalhadas
       const pieces=this.ghost.frames.pieces;
       for(let i=0;i<9;i++){
         const angle=(i/9)*Math.PI*2+t*0.02;
@@ -1740,7 +1790,6 @@ class Game{
       ctx.globalAlpha=1;
       drawTextSh('RESSUSCITANDO...',W/2,30,2,'#ffffff','center');
     }else if(t<120){
-      // Fase 1: Peças convergindo
       const progress=(t-60)/60;
       const pieces=this.ghost.frames.pieces;
       for(let i=0;i<9;i++){
@@ -1754,39 +1803,27 @@ class Game{
       ctx.globalAlpha=1;
       drawTextSh('MONTANDO...',W/2,30,2,'#ffffff','center');
     }else{
-      // Fase 2: Fantasma completo com barrinha
       const gf=this.ghost.frames.idle[0];
       const pulse=Math.sin(t*0.1)*0.1+0.9;
       ctx.globalAlpha=pulse;
       drawSpr(gf,W/2-8,H/2-8,false);
       ctx.globalAlpha=1;
-      
-      // Barrinha de vida aparecendo
       if(t>130){
         const barProgress=Math.min(1,(t-130)/30);
         const barW=60*barProgress;
         const barX=W/2-barW/2;
         const barY=H/2+20;
-        
-        // Fundo da barra
         ctx.fillStyle='#333333';
         ctx.fillRect(W/2-30,barY,60,6);
-        
-        // Preenchimento (verde brilhante)
         ctx.fillStyle='#88ff88';
         ctx.fillRect(barX,barY,barW,6);
-        
-        // Borda da barra
         ctx.strokeStyle='#ffffff';
         ctx.lineWidth=1;
         ctx.strokeRect(W/2-30,barY,60,6);
-        
-        // Texto
         if(t>150){
           drawTextSh('VAMOS VOLTAR A VIDA!',W/2,barY+14,1,'#88ff88','center');
         }
       }
-      
       if(t>160){
         const blink=((t>>3)%2)===0;
         if(blink){
@@ -1794,10 +1831,7 @@ class Game{
         }
       }
     }
-    
-    // Partículas
     this.particles.draw(0);
-    
     ctx.drawImage(this.scanlines,0,0);
   }
   updGameOver(P,dt){
@@ -1835,6 +1869,23 @@ class Game{
     for(const d of this.dust||[]){
       d.y+=d.sp;d.x+=Math.sin((this.t+d.ph*60)*0.01)*0.08;
       if(d.y>H){d.y=-2;d.x=Math.random()*W;}
+    }
+    // Sons ambientais periódicos
+    this.ambientTimer++;
+    if(this.ambientTimer%180===0&&Math.random()<0.3){
+      this.sound.windAmbient();
+    }
+    if(this.ambientTimer%240===0&&Math.random()<0.25){
+      this.sound.dripSound();
+    }
+    if(this.ambientTimer%300===0&&Math.random()<0.2){
+      this.sound.machineryHum();
+    }
+    if(this.ambientTimer%400===0&&this.level===2&&Math.random()<0.15){
+      this.sound.distantThunder();
+    }
+    if(this.ambientTimer%500===0){
+      this.sound.ambientLoop();
     }
   }
   updGame(P,dt){
@@ -1940,10 +1991,7 @@ class Game{
     this.particles.particles=[];
     this.dust=[];
     for(let i=0;i<40;i++)this.dust.push({x:Math.random()*W,y:Math.random()*H,sp:0.03+Math.random()*0.12,ph:Math.random()*6});
-    
-    // IMPORTANTE: Só criar esqueletos no INÍCIO do nível, NÃO do outro lado da ponte
     this.skels=this.mkSkelsStart();
-    
     this.invis={active:0,cd:0,denyT:0};
     this.cine={active:false,t:0,hold:0};
     this.checkX=28;this.cp2=false;
@@ -1958,14 +2006,12 @@ class Game{
      'CHEGUE AO PORTAO. SOBREVIVA.'].forEach(m=>this.toast(m));
   }
   
-  // Criar esqueletos apenas no início do nível (antes da ponte)
   mkSkelsStart(){
     return [
       this.mkSkel(90,168,120),
       this.mkSkel(208,308,250),
       this.mkSkel(348,468,420),
       this.mkSkel(506,628,560)
-      // NÃO adicionar esqueleto após a ponte (892-1002)
     ];
   }
   
@@ -1986,7 +2032,7 @@ class Game{
     };
     const arr=pools[pool]||pools.alert;
     s.bubbleTxt=arr[(Math.random()*arr.length)|0];s.bubbleT=110;
-    this.sound.skelTalk(); // Som de esqueleto falando
+    this.sound.skelTalk();
   }
   alertWave(x){
     let i=0;
@@ -2003,9 +2049,7 @@ class Game{
     return this.map.solid(tx,13)||this.map.solid(tx,14);
   }
   skelSees(s){
-    // INVISIBILIDADE FUNCIONA - esqueletos não veem jogador invisível
     if(this.invis.active>0)return false;
-    // ESCONDIDO FUNCIONA - esqueletos NÃO veem jogador escondido (CORRIGIDO!)
     if(this.player.hiding)return false;
     const p=this.player;
     if(Math.abs((s.y-9)-p.cy)>26)return false;
@@ -2021,9 +2065,6 @@ class Game{
     return true;
   }
   skelSmellsCloset(s){
-    // CORRIGIDO: Esqueletos NÃO cheiram armários quando jogador está escondido
-    // Apenas podem "ouvir" se o jogador fizer barulho (não implementado aqui)
-    // Retornamos null para que esqueletos NUNCA encontrem jogador escondido
     return null;
   }
   updSkeletons(){
@@ -2091,7 +2132,6 @@ class Game{
       s.x=clamp(s.x,14,MW2*TILE-14);
       if(s.bubbleDelay>0){s.bubbleDelay--;if(s.bubbleDelay===0)this.setBubble(s,s.bubblePool);}
       if(s.bubbleT>0)s.bubbleT--;
-      // MORTE: só quando esqueleto encosta e jogador não está escondido/invisível
       if(this.invis.active<=0&&!this.player.hiding&&
          Math.abs(s.x-P2.cx)<8&&Math.abs((s.y-9)-P2.cy)<13){
         caught=true;caughtSkel=s;break;
@@ -2108,7 +2148,7 @@ class Game{
   crackBridge(){
     const m=this.map;m.cracked=true;
     this.sound.crackS();
-    this.sound.bridgeCrash(); // Som dramático de ponte quebrando
+    this.sound.bridgeCrash();
     this.shake=15;this.glitch=10;
     this.objective='CORRA PELO RESTO DA PONTE!';
     this.toast('A PONTE RACHOU! OS ESQUELETOS OUVIRAM!');
@@ -2603,11 +2643,9 @@ class Game{
       else lit=!this.bo.on;
       ctx.fillStyle=lit?'#ffffaa':'#444455';ctx.fillRect(sx-1,13,2,2);
       if(lit){
-        // Halo de luz ao redor da lâmpada
         ctx.fillStyle='#ffff88';ctx.globalAlpha=0.15;
         ctx.fillRect(sx-8,10,16,20);
         ctx.globalAlpha=1;
-        
         ctx.fillStyle='#ffffcc';
         for(let i=0;i<15;i++){
           const dy=5+Math.random()*44,spread=2+dy*0.5;
@@ -2618,9 +2656,7 @@ class Game{
   }
   drawGame2(){
     const t=this.t,m=this.map;
-    // Céu noturno com gradiente
     ctx.fillStyle='#0a0a1a';ctx.fillRect(0,0,W,H);
-    // Estrelas mais bonitas com cruzes
     for(let i=0;i<50;i++){
       const sxr=((hash(i,11)%640)-this.cam*0.25)%W;
       const sx=((sxr%W)+W)%W;
@@ -2635,7 +2671,6 @@ class Game{
         ctx.globalAlpha=1;
       }
     }
-    // Lua com halo
     const mx=Math.round(252-this.cam*0.05);
     ctx.fillStyle='#667788';ctx.globalAlpha=0.08;
     for(let yy=-16;yy<=16;yy++){
@@ -2650,7 +2685,6 @@ class Game{
     }
     ctx.fillStyle='#ccccdd';
     ctx.fillRect(mx-4,22,3,2);ctx.fillRect(mx+3,29,2,3);ctx.fillRect(mx-1,33,2,2);
-    // Colinas
     for(let x=0;x<W;x+=2){
       const wx=x+this.cam*0.4;
       const h2=Math.floor(7+5*Math.sin(wx*0.017)+3*Math.sin(wx*0.009+2));
@@ -2664,7 +2698,6 @@ class Game{
     for(const s of this.skels)this.drawSkel(s);
     for(const s of this.skels)this.drawBubble(s);
     if(this.player.hiding){
-      // Não desenha quando escondido
     }else if(this.invis.active>0){
       ctx.globalAlpha=0.35;
       this.player.draw();
@@ -2675,7 +2708,6 @@ class Game{
     }else this.player.draw();
     this.particles.draw(this.cam);
     ctx.restore();
-    // Névoa
     ctx.globalAlpha=0.3;
     for(let i=0;i<12;i++){
       const fx=((i*67+t*(0.15+(i%3)*0.08))%(W+80))-40;
@@ -2689,7 +2721,6 @@ class Game{
     for(const dd of this.dust){
       ctx.fillStyle='#8888aa';ctx.fillRect(Math.round(dd.x),Math.round(dd.y),1,1);
     }
-    // Vignette vermelho dinâmico quando esqueletos perto
     const closest=this.skels.length?this.skels.reduce((min,s)=>Math.min(min,Math.abs(s.x-this.player.cx)),999):999;
     if(closest<120&&!this.player.hiding){
       const intensity=1-closest/120;
