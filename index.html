@@ -110,8 +110,10 @@ function textSources(text,sc,x,y){
 }
 
 class ParticleSystem{
-  constructor(){this.particles=[];this.maxParticles=500;}
+  constructor(){this.particles=[];this.maxParticles=800;this.fogParticles=[];this.leafParticles=[];}
   add(p){if(this.particles.length<this.maxParticles)this.particles.push(p);}
+  addFog(p){if(this.fogParticles.length<60)this.fogParticles.push(p);}
+  addLeaf(p){if(this.leafParticles.length<40)this.leafParticles.push(p);}
   puff(x,y,n,col){
     for(let i=0;i<n;i++){
       const a=Math.random()*Math.PI*2,s=rng(0.5,2.5);
@@ -183,6 +185,27 @@ class ParticleSystem{
         life:rng(40,80),maxLife:80,size:rng(2,4),col:'#FFFFFF',gravity:0,type:'assemble'});
     }
   }
+  fog(cam,t){
+    for(let i=0;i<3;i++){
+      const x=cam+Math.random()*W,y=rng(100,140);
+      this.addFog({x,y,vx:rng(0.2,0.5),size:rng(15,30),alpha:rng(0.08,0.15),life:rng(200,400),maxLife:400});
+    }
+  }
+  leaves(cam,t){
+    if(Math.random()<0.15){
+      const x=cam+W+10,y=rng(60,130);
+      this.addLeaf({x,y,vx:rng(-1.5,-0.5),vy:rng(0.3,0.8),rotation:Math.random()*Math.PI*2,
+        rotSpeed:rng(-0.1,0.1),size:rng(2,4),life:rng(150,300),maxLife:300,
+        color:Math.random()<0.6?'#8B4513':(Math.random()<0.5?'#A0522D':'#654321')});
+    }
+  }
+  ember(x,y,n){
+    for(let i=0;i<n;i++){
+      this.add({x,y,vx:rng(-0.5,0.5),vy:rng(-1.5,-0.5),
+        life:rng(30,60),maxLife:60,size:rng(1,2),
+        col:Math.random()<0.5?'#FF6600':'#FFAA00',gravity:-0.03,type:'ember'});
+    }
+  }
   update(){
     for(let i=this.particles.length-1;i>=0;i--){
       const p=this.particles[i];
@@ -191,6 +214,16 @@ class ParticleSystem{
       if(p.pulse!==undefined)p.pulse+=0.15;
       if(p.type==='smoke')p.alpha*=0.97;
       if(p.life<=0)this.particles.splice(i,1);
+    }
+    for(let i=this.fogParticles.length-1;i>=0;i--){
+      const f=this.fogParticles[i];
+      f.x+=f.vx;f.life--;
+      if(f.life<=0)this.fogParticles.splice(i,1);
+    }
+    for(let i=this.leafParticles.length-1;i>=0;i--){
+      const l=this.leafParticles[i];
+      l.x+=l.vx;l.y+=l.vy;l.rotation+=l.rotSpeed;l.vy+=0.02;l.life--;
+      if(l.life<=0||l.x<-50)this.leafParticles.splice(i,1);
     }
   }
   draw(cam){
@@ -218,9 +251,42 @@ class ParticleSystem{
           ctx.fillRect(sx-1,sy,sz+2,sz);
           ctx.fillRect(sx,sy-1,sz,sz+2);
         }
+      }else if(p.type==='ember'){
+        ctx.globalAlpha=alpha;
+        ctx.fillRect(sx,sy,sz,sz);
+        if(Math.random()<0.1){
+          ctx.globalAlpha=alpha*0.5;
+          ctx.fillRect(sx-1,sy+1,sz+2,sz);
+        }
       }else{
         ctx.fillRect(sx,sy,sz,sz);
       }
+    }
+    ctx.globalAlpha=1;
+    // Draw fog particles
+    for(const f of this.fogParticles){
+      const alpha=clamp(f.life/f.maxLife,0,1)*f.alpha;
+      const sx=Math.round(f.x-cam);
+      if(sx<-50||sx>W+50)continue;
+      ctx.globalAlpha=alpha;
+      ctx.fillStyle='#8899aa';
+      const sz=Math.ceil(f.size*alpha);
+      for(let i=0;i<3;i++){
+        ctx.fillRect(sx+i*8-f.size/2,f.y-i*4,sz*2,sz);
+      }
+    }
+    // Draw leaf particles
+    for(const l of this.leafParticles){
+      const alpha=clamp(l.life/l.maxLife,0,1);
+      const sx=Math.round(l.x-cam),sy=Math.round(l.y);
+      if(sx<-20||sx>W+20)continue;
+      ctx.globalAlpha=alpha;
+      ctx.fillStyle=l.color||'#8B4513';
+      ctx.save();
+      ctx.translate(sx,sy);
+      ctx.rotate(l.rotation);
+      ctx.fillRect(-l.size/2,-1,l.size,2);
+      ctx.restore();
     }
     ctx.globalAlpha=1;
   }
@@ -1237,36 +1303,92 @@ class Map2{
       g.fillRect(x,150,2,1);
     }
     
-    // Túmulos variados
+    // Túmulos variados e detalhados
     for(let i=0;i<this.graves.length;i++){
       const x=this.graves[i]*10;
       if(x<cam-20||x>cam+W+20)continue;
-      const v=hash(i,3)%4;
+      const v=hash(i,3)%6;
+      const h=hash(i,7);
       if(v===0){
+        // Lápide clássica com cruz
         g.fillStyle='#555566';g.fillRect(x+1,138,8,12);
         g.fillStyle='#666677';g.fillRect(x+2,136,6,2);
         g.fillStyle='#777788';g.fillRect(x+2,136,6,1);
         g.fillStyle='#222233';g.fillRect(x+3,141,4,1);g.fillRect(x+3,143,3,1);g.fillRect(x+3,145,4,1);
         g.fillStyle='#888899';g.fillRect(x+4,134,2,3);g.fillRect(x+3,135,4,1);
       }else if(v===1){
-        g.fillStyle='#666677';g.fillRect(x+4,132,2,18);g.fillRect(x+1,136,8,2);
-        g.fillStyle='#777788';g.fillRect(x+4,132,2,1);g.fillRect(x+1,136,8,1);
-        g.fillStyle='#555566';g.fillRect(x+3,148,4,2);
-        g.fillStyle='#444455';g.fillRect(x+3,148,4,1);
+        // Lápide alta inclinada
+        const tilt=(h%3)-1;
+        g.fillStyle='#666677';g.fillRect(x+4+tilt,132,2,18);g.fillRect(x+1+tilt,136,8,2);
+        g.fillStyle='#777788';g.fillRect(x+4+tilt,132,2,1);g.fillRect(x+1+tilt,136,8,1);
+        g.fillStyle='#555566';g.fillRect(x+3+tilt,148,4,2);
+        g.fillStyle='#444455';g.fillRect(x+3+tilt,148,4,1);
+        // Rachadura
+        g.fillStyle='#222233';
+        g.fillRect(x+5+tilt,140,1,3);g.fillRect(x+6+tilt,142,1,2);
       }else if(v===2){
+        // Túmulo baixo com flores mortas
         g.fillStyle='#444455';g.fillRect(x,148,10,2);
         g.fillStyle='#555566';g.fillRect(x+1,143,5,5);
         g.fillStyle='#666677';g.fillRect(x+1,143,5,1);
         g.fillStyle='#111122';g.fillRect(x+3,144,1,4);
         g.fillStyle='#665544';g.fillRect(x+6,146,3,2);
         g.fillStyle='#443322';g.fillRect(x+6,145,3,1);
+      }else if(v===3){
+        // Cruz simples de madeira
+        g.fillStyle='#665544';g.fillRect(x+4,128,2,22);
+        g.fillStyle='#776655';g.fillRect(x+4,128,2,1);
+        g.fillStyle='#554433';g.fillRect(x+2,136,6,2);
+        g.fillStyle='#665544';g.fillRect(x+2,136,6,1);
+        g.fillStyle='#443322';g.fillRect(x+3,150,4,2);
+        // Texto RIP desbotado
+        drawText('RIP',x+5,142,1,'#887766','center');
+      }else if(v===4){
+        // Lápide quebrada no topo
+        g.fillStyle='#555566';g.fillRect(x+2,140,6,10);
+        g.fillStyle='#666677';g.fillRect(x+2,140,6,1);
+        g.fillStyle='#444455';g.fillRect(x+1,148,8,2);
+        // Topo quebrado irregular
+        g.fillStyle='#777788';g.fillRect(x+3,136,4,4);
+        g.fillStyle='#555566';g.fillRect(x+2,138,2,2);
+        g.fillStyle='#222233'; // rachaduras
+        g.fillRect(x+4,142,1,3);g.fillRect(x+6,144,2,1);
       }else{
+        // Lápide com inscrição diferente
         g.fillStyle='#555566';g.fillRect(x+3,132,4,18);
         g.fillStyle='#666677';g.fillRect(x+4,128,2,4);
         g.fillRect(x+4,128,2,1);
         g.fillStyle='#777788';g.fillRect(x+4,128,2,1);
         g.fillStyle='#444455';g.fillRect(x+2,150,6,2);
         g.fillStyle='#222233';g.fillRect(x+4,140,2,3);
+        // Inscrição especial
+        const inscriptions=['???','X','?','†'];
+        drawText(inscriptions[h%4],x+5,144,1,'#888899','center');
+      }
+      // Pequenos detalhes no chão ao redor da lápide
+      if(h%5===0){
+        g.fillStyle='#3a2818';
+        g.fillRect(x-2,149,2,1);g.fillRect(x+10,149,2,1);
+      }
+      if(h%7===0){
+        g.fillStyle='#554433';
+        g.fillRect(x-1,150,1,1);
+      }
+    }
+    
+    // Mãos surgindo do chão (aleatórias)
+    for(let i=0;i<5;i++){
+      const gx=this.graves[(i*3)%this.graves.length]*10+5;
+      const h=hash(i,13);
+      if(h%8===0&&game.t%(200+i*30)>100){
+        // Mão emergindo
+        const emergeY=152-Math.min(8,(game.t%(200+i*30)-100)/15);
+        g.fillStyle='#8899aa';
+        g.fillRect(gx-2,emergeY,2,4);
+        g.fillRect(gx+2,emergeY+1,2,3);
+        g.fillStyle='#778899';
+        g.fillRect(gx-2,emergeY,2,1);
+        g.fillRect(gx+2,emergeY+1,2,1);
       }
     }
     
@@ -2915,11 +3037,19 @@ class Game{
     this.map.draw(this.cam,t);
     this.player.draw();
     if(this.app.on)this.drawApp();
+    // Adicionar partículas de poeira no laboratório
+    if(t%8===0){
+      this.particles.dust(this.player.cx,this.player.cy,2);
+    }
     this.particles.draw(this.cam);
     this.drawLamps();
     ctx.restore();
-    // REMOVIDO: loop de dust flutuante
-    // REMOVIDO: vignette (bordas escuras com rabiscos)
+    // Vignette sutil para atmosfera do laboratório
+    const vigGrad=ctx.createRadialGradient(W/2,H/2,70,W/2,H/2,150);
+    vigGrad.addColorStop(0,'rgba(0,0,0,0)');
+    vigGrad.addColorStop(1,'rgba(0,0,0,0.25)');
+    ctx.fillStyle=vigGrad;
+    ctx.fillRect(0,0,W,H);
     if(this.bo.on&&!((t%7)===0)){
       const px=clamp(this.player.cx-this.cam,0,W),py=clamp(this.player.cy,0,H),r=26;
       ctx.fillStyle='#000000';
@@ -2939,7 +3069,6 @@ class Game{
     this.drawDialog();
     this.drawToast();
     if(this.introT<200)this.drawLevelIntro();
-    // REMOVIDO: scanlines (linhas horizontais pretas)
     this.glitchFx();
     this.whiteout();
     if(this.isTouch&&!this.dialog.active)this.drawTouch();
@@ -2994,10 +3123,24 @@ class Game{
       ctx.fillRect(this.player.x-5,this.player.y-4,this.player.w+10,this.player.h+6);
       ctx.globalAlpha=1;
     }else this.player.draw();
+    // Adicionar partículas de folhas e névoa no cemitério
+    if(t%5===0){
+      this.particles.leaves(this.cam,t);
+    }
+    if(t%15===0){
+      this.particles.fog(this.cam,t);
+    }
     this.particles.draw(this.cam);
     ctx.restore();
-    // REMOVIDO: névoa (retângulos flutuantes rabiscados)
-    // REMOVIDO: loop de dust
+    // Desenhar névoa sobreposta (efeito atmosférico)
+    ctx.globalAlpha=0.08;
+    ctx.fillStyle='#8899aa';
+    for(let i=0;i<3;i++){
+      const fogX=((t*0.3+i*40)%W)-20;
+      const fogY=80+i*15;
+      ctx.fillRect(fogX,fogY,W+40,20);
+    }
+    ctx.globalAlpha=1;
     const closest=this.skels.length?this.skels.reduce((min,s)=>Math.min(min,Math.abs(s.x-this.player.cx)),999):999;
     if(closest<120&&!this.player.hiding){
       const intensity=1-closest/120;
@@ -3006,14 +3149,18 @@ class Game{
       ctx.fillRect(0,0,W,H);
       ctx.globalAlpha=1;
     }
-    // REMOVIDO: vignette
+    // Vignette sutil para atmosfera
+    const vigGrad=ctx.createRadialGradient(W/2,H/2,60,W/2,H/2,140);
+    vigGrad.addColorStop(0,'rgba(0,0,0,0)');
+    vigGrad.addColorStop(1,'rgba(0,0,0,0.3)');
+    ctx.fillStyle=vigGrad;
+    ctx.fillRect(0,0,W,H);
     this.drawObjectiveHUD();
     this.drawInvisHUD();
     this.drawHideIndicator();
     this.drawDialog();
     this.drawToast();
     if(this.introT<200)this.drawLevelIntro();
-    // REMOVIDO: scanlines
     this.glitchFx();
     if(this.cine.active)this.drawCine();
     this.whiteout();
