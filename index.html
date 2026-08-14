@@ -654,7 +654,7 @@ class Sound{
 
 class Ghost{
   constructor(){
-    this.pal={'1':'#FFFFFF','2':'#CCCCCC','3':'#666666','4':'#000000'};
+    this.pal={'1':'#FFFFFF','2':'#E8E8E8','3':'#B8B8B8','4':'#000000'};
     this.base=[
       "0000000000000000","0000011111100000","0001111111111000","0011111111111100",
       "0111111111111110","0111111111111110","0111111111111110","0111111111111110",
@@ -1110,7 +1110,6 @@ class Map2{
     const g=ctx;
     const x0=Math.max(0,Math.floor(cam/TILE)-1),x1=Math.min(MW2-1,Math.floor((cam+W)/TILE)+1);
     
-    // Céu noturno limpo (sem estrelas rabiscadas)
     const skyGrad=ctx.createLinearGradient(0,0,0,120);
     skyGrad.addColorStop(0,'#020208');
     skyGrad.addColorStop(0.4,'#08081a');
@@ -1119,7 +1118,6 @@ class Map2{
     ctx.fillStyle=skyGrad;
     ctx.fillRect(0,0,W,120);
     
-    // Lua simples (sem crateras/rabiscos)
     const mx=Math.round(252-cam*0.05);
     ctx.fillStyle='#aabbcc';ctx.globalAlpha=0.08;
     for(let yy=-20;yy<=20;yy++){
@@ -1133,14 +1131,12 @@ class Map2{
       ctx.fillRect(mx-ww,28+yy,ww*2,1);
     }
     
-    // Colinas limpas (sem detalhes)
     for(let x=0;x<W;x+=2){
       const wx=x+cam*0.4;
       const h2=Math.floor(7+5*Math.sin(wx*0.017)+3*Math.sin(wx*0.009+2));
       ctx.fillStyle='#1a1a28';ctx.fillRect(x,112-h2,2,h2);
     }
     
-    // Grades de ferro
     for(const gr of this.grates){
       const fx0=gr.x0,fx1=gr.x1;
       if(fx1<cam-20||fx0>cam+W+20)continue;
@@ -1170,7 +1166,6 @@ class Map2{
       }
     }
     
-    // Cercas de madeira
     for(const f of this.fences){
       const fx0=f.x0*10,fx1=f.x1*10;
       if(fx1<cam-20||fx0>cam+W+20)continue;
@@ -1181,7 +1176,6 @@ class Map2{
       g.fillRect(fx0,145,fx1-fx0,1);
     }
     
-    // Cruzes grandes decorativas
     for(const cr of this.bigCrosses){
       const cx=cr.x, cy=cr.y;
       if(cx<cam-30||cx>cam+W+30)continue;
@@ -1201,7 +1195,6 @@ class Map2{
       g.fillRect(cx-6,cy+6,12,1);
     }
     
-    // Estátuas de anjos
     for(const st of this.statues){
       const sx=st.x, sy=st.y;
       if(sx<cam-30||sx>cam+W+30)continue;
@@ -1236,7 +1229,6 @@ class Map2{
       g.fillRect(sx-2,sy+10,1,1);g.fillRect(sx+1,sy+10,1,1);
     }
     
-    // Mausoléus grandes
     for(const m of this.mausoleums){
       const mx=m.x,my=m.y;
       if(mx+m.w<cam-20||mx>cam+W+20)continue;
@@ -1267,7 +1259,6 @@ class Map2{
       drawText('RIP',mx+Math.floor(m.w/2),my+14,1,'#aaaaaa','center');
     }
     
-    // Árvores mortas
     for(const tx of this.trees){
       const x=tx*10;
       if(x<cam-40||x>cam+W+40)continue;
@@ -1303,7 +1294,7 @@ class Map2{
       g.fillRect(x,150,2,1);
     }
     
-    // Túmulos variados e detalhados
+
     for(let i=0;i<this.graves.length;i++){
       const x=this.graves[i]*10;
       if(x<cam-20||x>cam+W+20)continue;
@@ -1392,7 +1383,6 @@ class Map2{
       }
     }
     
-    // Velas acesas
     for(const c of this.candles){
       const cx=c.x, cy=c.y;
       if(cx<cam-10||cx>cam+W+10)continue;
@@ -1412,7 +1402,6 @@ class Map2{
       g.globalAlpha=1;
     }
     
-    // Flores mortas
     for(const f of this.deadFlowers){
       const fx=f.x,fy=f.y;
       if(fx<cam-10||fx>cam+W+10)continue;
@@ -1428,7 +1417,6 @@ class Map2{
     
     this.drawMausoleum(t);
     
-    // Caminho de pedra
     for(let tx=x0;tx<=x1;tx++){
       const h=hash(tx,88);
       const py=148+(h%2);
@@ -1440,7 +1428,6 @@ class Map2{
       }
     }
     
-    // Chão com textura
     for(let tx=x0;tx<=x1;tx++)for(let ty=15;ty<18;ty++){
       if(this.g[ty*MW2+tx]===1)this.drawDirt(tx,ty);
     }
@@ -1465,7 +1452,6 @@ class Map2{
     for(const cl of this.closets)this.drawCloset(cl,t);
     this.drawPit(t);this.drawBridge(t);this.drawGate(t);
     
-    // Corvos voando
     for(const cr of this.crows){
       cr.x+=cr.dir*0.3;
       cr.flapT++;
@@ -1746,13 +1732,32 @@ class Player{
       img=this.blinking>0?g.blinkIdle:g.frames.idle[this.frame%g.frames.idle.length];
     }
     const bob=this.state==='idle'?[0,-1,-1,0,0,-1][this.frame%6]:this.state==='walk'?[0,-1,0,-1,0,-1,0,-1][this.frame%8]:0;
-    ctx.fillStyle='#000000';ctx.globalAlpha=0.4;
-    ctx.fillRect(this.x-1,this.y+this.h,this.w+2,2);
+    
+    // Sombra melhorada (mais suave e realista)
+    const shadowW=this.w+4;
+    const shadowAlpha=this.ground?0.35:0.2;
+    ctx.fillStyle='#000000';
+    ctx.globalAlpha=shadowAlpha;
+    ctx.fillRect(Math.round(this.x-2),Math.round(this.y+this.h),shadowW,2);
+    ctx.globalAlpha=shadowAlpha*0.5;
+    ctx.fillRect(Math.round(this.x-3),Math.round(this.y+this.h+1),shadowW+2,1);
     ctx.globalAlpha=1;
+    
     if(this.hurtT>0 && Math.floor(this.hurtT/50)%2===0){
       ctx.globalAlpha=0.5;
     }
+    
+    // Efeito de brilho sutil no fantasma
+    const glowPulse=0.9+0.1*Math.sin(this.breathT*0.003);
+    ctx.globalAlpha=(ctx.globalAlpha||1)*glowPulse;
+    
     drawSpr(img,this.x-3,this.y-2+bob,this.face<0);
+    ctx.globalAlpha=1;
+    
+    // Aura suave ao redor do fantasma
+    ctx.fillStyle='#ffffff';
+    ctx.globalAlpha=0.08;
+    ctx.fillRect(Math.round(this.x-4),Math.round(this.y-3),this.w+8,this.h+6);
     ctx.globalAlpha=1;
   }
 }
@@ -1761,7 +1766,6 @@ class Menu{
   constructor(g){
     this.g=g;this.sel=0;this.setSel=0;this.seeded=false;
     this.drips=new Drips();this.parts=[];
-    // Partículas do menu mantidas (são parte da estética do menu)
     for(let i=0;i<55;i++)this.parts.push({x:Math.random()*W,y:Math.random()*H,sp:0.1+Math.random()*0.25,c:Math.random()<0.5?'#8888aa':'#ccccff',dr:Math.random()*6});
     this.tankT=260;this.tankOn=0;
   }
@@ -1780,7 +1784,14 @@ class Menu{
     if(this.tankOn>0)this.tankOn--;
   }
   drawBg(t){
-    ctx.fillStyle='#0a0a1a';ctx.fillRect(0,0,W,H);
+    // Fundo do menu melhorado com gradiente
+    const bgGrad=ctx.createLinearGradient(0,0,0,H);
+    bgGrad.addColorStop(0,'#0a0a1a');
+    bgGrad.addColorStop(0.5,'#10102a');
+    bgGrad.addColorStop(1,'#0a0a1a');
+    ctx.fillStyle=bgGrad;
+    ctx.fillRect(0,0,W,H);
+    
     ctx.fillStyle='#444455';ctx.fillRect(0,150,W,30);
     ctx.fillStyle='#555566';ctx.fillRect(0,150,W,1);
     ctx.fillStyle='#444455';
@@ -1797,7 +1808,16 @@ class Menu{
     this.drawBg(t);
     const gf=this.g.ghost.frames.idle[Math.floor(t/8)%6];
     const gy=22+Math.sin(t*0.05)*2;
-    ctx.globalAlpha=0.22;ctx.drawImage(gf,136,gy,48,48);ctx.globalAlpha=1;
+    
+    // Fantasma do menu com sombra e brilho
+    ctx.fillStyle='#000000';ctx.globalAlpha=0.3;
+    ctx.fillRect(144,68,32,3);
+    ctx.globalAlpha=1;
+    
+    ctx.globalAlpha=0.25;ctx.drawImage(gf,136,gy,48,48);
+    ctx.globalAlpha=0.15;ctx.drawImage(gf,134,gy-2,52,52);
+    ctx.globalAlpha=1;
+    
     drawTextSh('OTHER SIDE',62,12,4,'#ffffff');
     this.drips.draw('#ff4444',2);
     if(!this.g.sound.ok&&((t>>4)%2)===0)
@@ -1818,7 +1838,7 @@ class Menu{
       }
     }
     drawText(this.g.isTouch?'TOQUE PARA ESCOLHER':'W/S: NAVEGAR   ENTER: CONFIRMAR',W/2,168,1,'#666677','center');
-    drawText('V5.3',2,174,1,'#666677');
+    drawText('V5.4',2,174,1,'#666677');
   }
   drawSettings(t){
     ctx.fillStyle='#0a0a1a';ctx.fillRect(0,0,W,H);
@@ -1872,7 +1892,6 @@ class Game{
     this.cine={active:false,t:0,hold:0};
     this.graceT=0;this.alertSndT=0;
     this.particles=new ParticleSystem();
-    // REMOVIDO: vignette e scanlines (rabiscos de tela)
     this.vig=null;
     this.scanlines=null;
     this.btns={l:{x:6,y:138,w:40,h:36},r:{x:50,y:138,w:40,h:36},a:{x:226,y:136,w:40,h:38},j:{x:270,y:130,w:44,h:46},r2:{x:138,y:138,w:42,h:36}};
@@ -2055,7 +2074,6 @@ class Game{
     this.toastQ=[];this.toastCur=null;
     this.dialog={active:false,pages:[],page:0,n:0};
     this.particles.particles=[];
-    // REMOVIDO: this.dust (partículas flutuantes na tela)
     this.dust=[];
     this.app={on:false,x:0,t:0,cd:500+Math.random()*400};
     this.bo={on:false,t:500+Math.random()*500};
@@ -2317,7 +2335,6 @@ class Game{
       this.sound.setGameMode(false);
     }
   }
-  // REMOVIDO: updAmbient não atualiza mais o dust
   updAmbient(dt){
     this.ambientTimer++;
     if(this.ambientTimer%180===0&&Math.random()<0.4){
@@ -2440,7 +2457,6 @@ class Game{
     this.toastQ=[];this.toastCur=null;
     this.dialog={active:false,pages:[],page:0,n:0};
     this.particles.particles=[];
-    // REMOVIDO: partículas de poeira flutuantes
     this.dust=[];
     this.skels=this.mkSkelsStart();
     this.invis={active:0,cd:0,denyT:0};
@@ -3044,103 +3060,7 @@ class Game{
     this.particles.draw(this.cam);
     this.drawLamps();
     ctx.restore();
-    // Vignette sutil para atmosfera do laboratório
-    const vigGrad=ctx.createRadialGradient(W/2,H/2,70,W/2,H/2,150);
-    vigGrad.addColorStop(0,'rgba(0,0,0,0)');
-    vigGrad.addColorStop(1,'rgba(0,0,0,0.25)');
-    ctx.fillStyle=vigGrad;
-    ctx.fillRect(0,0,W,H);
-    if(this.bo.on&&!((t%7)===0)){
-      const px=clamp(this.player.cx-this.cam,0,W),py=clamp(this.player.cy,0,H),r=26;
-      ctx.fillStyle='#000000';
-      ctx.fillRect(0,0,W,Math.max(0,py-r));
-      ctx.fillRect(0,py+r,W,H-(py+r));
-      ctx.fillRect(0,py-r,Math.max(0,px-r),r*2);
-      ctx.fillRect(px+r,py-r,W-(px+r),r*2);
-    }
-    if(this.prompt&&!this.dialog.active){
-      const bx=clamp(this.prompt.x-this.cam,10,W-14),by=this.prompt.kind==='door'?96:Math.max(14,this.prompt.y-26);
-      ctx.fillStyle='#0a0a1a';ctx.fillRect(bx-5,by-6,14,13);
-      ctx.fillStyle='#8888aa';
-      ctx.fillRect(bx-5,by-6,14,1);ctx.fillRect(bx-5,by+6,14,1);ctx.fillRect(bx-5,by-6,1,13);ctx.fillRect(bx+8,by-6,1,13);
-      drawText('E',bx,by-3+((t>>4)%2),1,'#ffffff');
-    }
-    this.drawObjectiveHUD();
-    this.drawDialog();
-    this.drawToast();
-    if(this.introT<200)this.drawLevelIntro();
-    this.glitchFx();
-    this.whiteout();
-    if(this.isTouch&&!this.dialog.active)this.drawTouch();
-  }
-  drawApp(){
-    const a=this.app,jx=(Math.random()<0.5)?0:1;
-    const x=Math.round(a.x)+jx,y=140;
-    ctx.fillStyle='#ffffff';
-    for(let yy=0;yy<30;yy++){
-      const w2=yy<7?(yy<2?2:4):(6+((yy%7<3)?1:0));
-      for(let xx=-Math.floor(w2/2);xx<=Math.floor(w2/2);xx++){
-        if(((xx+yy)&1)===0)ctx.fillRect(x+xx,y+yy,1,1);
-      }
-    }
-    ctx.fillStyle='#ff0000';
-    ctx.fillRect(x-1,y+3,1,2);ctx.fillRect(x+1,y+3,1,2);
-  }
-  drawLamps(){
-    const t=this.t;
-    for(const L of this.map.lamps){
-      const sx=L.tx*10+5;
-      if(sx<this.cam-30||sx>this.cam+W+30)continue;
-      ctx.fillStyle='#666677';ctx.fillRect(sx-2,10,4,3);
-      let lit=false;
-      if(L.dead)lit=false;
-      else if(L.broken)lit=this.flick.on>0&&Math.random()<0.7;
-      else lit=!this.bo.on;
-      ctx.fillStyle=lit?'#ffffaa':'#444455';ctx.fillRect(sx-1,13,2,2);
-      if(lit){
-        ctx.fillStyle='#ffff88';ctx.globalAlpha=0.15;
-        ctx.fillRect(sx-8,10,16,20);
-        ctx.globalAlpha=1;
-      }
-    }
-  }
-  drawGame2(){
-    const t=this.t,m=this.map;
-    ctx.fillStyle='#0a0a1a';ctx.fillRect(0,0,W,H);
-    let shx=0,shy=0;
-    if(this.shake>0){shx=(Math.random()-0.5)*this.shake*0.8;shy=(Math.random()-0.5)*this.shake*0.8;}
-    ctx.save();
-    ctx.translate(Math.round(-this.cam+shx),Math.round(shy));
-    m.draw(this.cam,t);
-    for(const s of this.skels)this.drawSkel(s);
-    for(const s of this.skels)this.drawBubble(s);
-    if(this.player.hiding){
-    }else if(this.invis.active>0){
-      ctx.globalAlpha=0.35;
-      this.player.draw();
-      ctx.globalAlpha=1;
-      ctx.fillStyle='#88ccff';ctx.globalAlpha=0.15;
-      ctx.fillRect(this.player.x-5,this.player.y-4,this.player.w+10,this.player.h+6);
-      ctx.globalAlpha=1;
-    }else this.player.draw();
-    // Adicionar partículas de folhas e névoa no cemitério
-    if(t%5===0){
-      this.particles.leaves(this.cam,t);
-    }
-    if(t%15===0){
-      this.particles.fog(this.cam,t);
-    }
-    this.particles.draw(this.cam);
-    ctx.restore();
-    // Desenhar névoa sobreposta (efeito atmosférico)
-    ctx.globalAlpha=0.08;
-    ctx.fillStyle='#8899aa';
-    for(let i=0;i<3;i++){
-      const fogX=((t*0.3+i*40)%W)-20;
-      const fogY=80+i*15;
-      ctx.fillRect(fogX,fogY,W+40,20);
-    }
-    ctx.globalAlpha=1;
+
     const closest=this.skels.length?this.skels.reduce((min,s)=>Math.min(min,Math.abs(s.x-this.player.cx)),999):999;
     if(closest<120&&!this.player.hiding){
       const intensity=1-closest/120;
@@ -3149,12 +3069,7 @@ class Game{
       ctx.fillRect(0,0,W,H);
       ctx.globalAlpha=1;
     }
-    // Vignette sutil para atmosfera
-    const vigGrad=ctx.createRadialGradient(W/2,H/2,60,W/2,H/2,140);
-    vigGrad.addColorStop(0,'rgba(0,0,0,0)');
-    vigGrad.addColorStop(1,'rgba(0,0,0,0.3)');
-    ctx.fillStyle=vigGrad;
-    ctx.fillRect(0,0,W,H);
+
     this.drawObjectiveHUD();
     this.drawInvisHUD();
     this.drawHideIndicator();
@@ -3174,20 +3089,31 @@ class Game{
     else if(af===1)img=red?this.skel.r2:this.skel.w2;
     else img=red?this.skel.ratk:this.skel.atk;
     const x=Math.round(s.x-6),y=Math.round(s.y-16);
+    
+    // Sombra do esqueleto (mais realista)
     ctx.fillStyle='#000000';ctx.globalAlpha=0.4;
     ctx.fillRect(x+1,s.y-1,10,2);
+    ctx.globalAlpha=0.2;
+    ctx.fillRect(x,s.y,12,1);
     ctx.globalAlpha=1;
+    
     if(s.dir<0){
       ctx.save();ctx.translate(x+12,y);ctx.scale(-1,1);ctx.drawImage(img,0,0);ctx.restore();
     }else{
       ctx.drawImage(img,x,y);
     }
+    
+    // Olhos brilhantes quando alerta (mais dramático)
     if(red){
+      const pulse=0.6+0.4*Math.sin(this.t*0.25);
       ctx.fillStyle='#ff0000';
-      const pulse=0.5+0.5*Math.sin(this.t*0.2);
       ctx.globalAlpha=pulse;
       const ex=s.dir<0?x+8:x+4;
       ctx.fillRect(ex,y+2,1,1);ctx.fillRect(ex+(s.dir<0?-3:3),y+2,1,1);
+      // Brilho ao redor dos olhos
+      ctx.globalAlpha=pulse*0.3;
+      ctx.fillRect(ex-1,y+1,3,3);
+      ctx.fillRect(ex+(s.dir<0?-4:2),y+1,3,3);
       ctx.globalAlpha=1;
     }
   }
