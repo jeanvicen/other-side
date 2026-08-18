@@ -27,17 +27,17 @@ Para testes locais, o comando é:
 bubblewrap build --manifest=android-twa/twa-manifest.json
 ```
 
-O resultado esperado é um APK assinado para teste e um App Bundle `.aab` para envio à Play Store. O arquivo `.aab` deve ser enviado para a faixa interna ou fechada antes de uma publicação pública.
+O resultado gerado nesta execução foi um APK assinado de teste em `../app-release-signed.apk` e um App Bundle em `../app-release-bundle.aab`. Esses binários ficam fora do Git por segurança e podem ser distribuídos para teste ou anexados a uma entrega. O arquivo `.aab` deve ser enviado para a faixa interna ou fechada antes de uma publicação pública.
 
 ## Verificação do domínio
 
-A TWA só fica em tela cheia quando o Android consegue verificar que o aplicativo e o domínio pertencem ao mesmo desenvolvedor. Depois de gerar a chave e obter o fingerprint SHA-256, substitua o texto `REPLACE_WITH_PLAY_APP_SIGNING_SHA256_FINGERPRINT` em:
+A TWA só fica em tela cheia quando o Android consegue verificar que o aplicativo e o domínio pertencem ao mesmo desenvolvedor. O arquivo de associação fica em:
 
 ```text
 .well-known/assetlinks.json
 ```
 
-O arquivo precisa ser acessível exatamente em `https://other-side-ten.vercel.app/.well-known/assetlinks.json`. Se o domínio final mudar, atualize `host`, `webManifestUrl`, `iconUrl`, `maskableIconUrl` e o arquivo de associação antes do build.
+O arquivo precisa ser acessível exatamente em `https://other-side-ten.vercel.app/.well-known/assetlinks.json`. O repositório já contém o fingerprint da chave local usada no APK de teste. A Play Store pode usar uma chave de assinatura de aplicativo diferente; nesse caso, adicione também o fingerprint exibido no Play Console. Se o domínio final mudar, atualize `host`, `webManifestUrl`, `iconUrl`, `maskableIconUrl` e o arquivo de associação antes do build.
 
 ## Requisitos para publicação
 

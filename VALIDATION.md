@@ -8,3 +8,9 @@ A verificação no navegador confirmou o título `OTHER SIDE — KLIPZASTUDIO`, 
 
 As verificações estáticas também passaram: `node --check install.js`, `node --check sw.js`, parsing dos três JSON e conferência dos tamanhos 32, 180, 192 e 512 dos ícones.
 Após dispensar o convite, o jogo continuou respondendo normalmente e avançou da apresentação para o menu principal, confirmando que a camada de instalação não bloqueia o fluxo original.
+A verificação HTTPS em `https://other-side-ten.vercel.app/` confirmou que a versão publicada já entrega `manifest.webmanifest` e `install.js` com HTTP 200. A abertura pública exibiu o painel `INSTALAR?` e preservou a tela de apresentação original do canvas.
+
+O commit principal está publicado em `main` no GitHub: `8a37aa32b5c230cb0cd2b455ebb28d434923456e` (`Keep icon generation reproducible`), com o commit anterior de implementação `f27eb81`.
+A preparação Android também foi concluída com Bubblewrap: JDK 17 e Android SDK válidos, projeto TWA gerado para `com.klipzastudio.otherside`, APK assinado em `app-release-signed.apk` e AAB em `app-release-bundle.aab`. Os dois arquivos passaram em `unzip -tq`.
+
+O APK de teste usa a chave local `other-side-upload`, cujo fingerprint SHA-256 é `1B:77:56:5E:6D:08:01:D7:64:B4:9F:E6:9D:F6:F1:0A:99:C5:B9:32:53:7B:D5:DD:74:3F:14:97:6C:10:80:75`. A chave está em diretório ignorado e não foi enviada ao Git. Para a Play Store, o fingerprint da chave de assinatura do Play Console deverá ser adicionado ao `assetlinks.json` caso seja diferente.
