@@ -1,0 +1,27 @@
+{
+  "packageId": "com.klipzastudio.otherside",
+  "host": "other-side-ten.vercel.app",
+  "startUrl": "/",
+  "webManifestUrl": "https://other-side-ten.vercel.app/manifest.webmanifest",
+  "name": "OTHER SIDE",
+  "launcherName": "OTHER SIDE",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "themeColor": "#080713",
+  "navigationColor": "#080713",
+  "navigationColorDark": "#080713",
+  "backgroundColor": "#080713",
+  "iconUrl": "https://other-side-ten.vercel.app/icons/icon-512.png",
+  "maskableIconUrl": "https://other-side-ten.vercel.app/icons/icon-512-maskable.png",
+  "fallbackType": "customtabs",
+  "enableNotifications": false,
+  "enableSiteSettingsShortcut": false,
+  "splashScreenFadeOutDuration": 300,
+  "appVersionCode": 1,
+  "appVersion": "1.0.0",
+  "signingKey": {
+    "path": "./keys/other-side-upload.keystore",
+    "alias": "other-side-upload"
+  },
+  "fingerprints": []
+}
