@@ -20,4 +20,6 @@ Com `any:false`, o runtime manteve `dialog: true`, `actorMet: true` e fila de to
 
 Em 19/08/2026 às 00:59 UTC, o domínio `https://other-side-ten.vercel.app/` respondeu normalmente e exibiu o prompt `INSTALAR?`. A inspeção dos recursos retornou temporariamente `chapter1.js?v=4`, `other-side-shell-v5` e manifesto `standalone`, indicando que o novo commit ainda não havia propagado para o deployment observado. O commit v6 já foi enviado ao GitHub em `ae2ba44` após rebase com a atualização remota `89b993e`.
 
-A consulta posterior ao GitHub não encontrou deployment para `ae2ba44`; por isso, a validação pública permanece pendente de propagação do Vercel. O conteúdo local e o commit remoto estão sincronizados, e nenhuma alteração adicional de gameplay foi feita durante o diagnóstico.
+O commit `ae2ba44` não recebeu deployment próprio, mas o commit documental `c4b4009` acionou o Vercel e concluiu o deployment de produção `5974043438` com estado `success`. A URL pública passou a servir `chapter1.js?v=6`, `other-side-shell-v6` e `manifest.display = fullscreen`.
+
+A validação funcional no domínio confirmou o recurso `https://other-side-ten.vercel.app/chapter1.js?v=6`, o retorno de `chapters` para `menu` pelo botão Voltar, o NPC `LUME` encontrado no nível 3, `dialogActive = true` e fila de toast vazia. A captura pública mostrou a caixa de diálogo renderizada: `VOCE TAMBEM ACORDOU? EU ME CHAMO LUME. NAO CONFIE NOS FIOS.` sobre o cenário variante do cemitério.
