@@ -75,3 +75,7 @@ O nível 2 abriu com `echoNPC` ativo, HUD `NIVEL 2/100`, cemitério, lua, esquel
 ## Rodada 15 — console e runtime
 
 O console da versão v4 não registrou erro fatal. Os testes confirmaram `echoNPC: true` no laboratório, `echoNPC: true` e `warden: true` no cemitério, estado `game` e níveis `1/100` e `2/100`. A camada visual e os eventos de áudio foram mantidos acima do motor original.
+
+## Rodada 16 — domínio publicado
+
+O domínio público `https://other-side-ten.vercel.app/` abriu com o convite PWA `INSTALAR?`. O runtime público confirmou `chapter1.js?v=4`, `menuItems: 5`, `save: true` e estado `menu`. A instalação anterior não foi removida pela evolução do jogo.
