@@ -9,6 +9,26 @@
   const isIOS = /iphone|ipad|ipod/i.test(window.navigator.userAgent);
   const isTouchDevice =
     "ontouchstart" in window || window.navigator.maxTouchPoints > 0;
+
+  const requestImmersive = () => {
+    if (!isTouchDevice || document.fullscreenElement) return;
+
+    const root = document.documentElement;
+    const request = root.requestFullscreen || root.webkitRequestFullscreen;
+
+    if (request) {
+      try {
+        const result = request.call(root);
+        if (result && result.catch) result.catch(() => {});
+      } catch (_error) {}
+    }
+
+    if (window.screen && screen.orientation && screen.orientation.lock) {
+      const lock = screen.orientation.lock("landscape");
+      if (lock && lock.catch) lock.catch(() => {});
+    }
+  };
+
   const wasDismissed = () => {
     try {
       return window.sessionStorage.getItem("other-side-install-dismissed") === "1";
@@ -28,6 +48,17 @@
   if (isStandalone()) {
     registerServiceWorker();
     return;
+  }
+
+  // Browsers usually require a user gesture for fullscreen. Capture the first
+  // touch before the game receives it, while installed PWAs use the manifest
+  // display mode automatically.
+  if (isTouchDevice) {
+    window.addEventListener("pointerdown", requestImmersive, {
+      once: true,
+      capture: true,
+      passive: true,
+    });
   }
 
   const style = document.createElement("style");
@@ -177,6 +208,10 @@
   });
 
   registerServiceWorker();
+
+  if (isTouchDevice && !isStandalone()) {
+    window.setTimeout(requestImmersive, 120);
+  }
 
   // On touch devices, make the custom “Instalar?” invitation visible on first visit.
   // On desktop, the panel only appears after Chromium signals that installation is ready.

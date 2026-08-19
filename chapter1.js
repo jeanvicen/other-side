@@ -455,6 +455,18 @@
             };
         }
 
+        const actor=actorAt(g);
+
+        if(actor){
+            return{
+                kind:"npc",
+                x:actor.x,
+                y:actor.y,
+                actor,
+                label:"FALAR"
+            };
+        }
+
         const cl=g.map.getClosetAt&&
             g.map.getClosetAt(g.player.cx,g.player.cy);
 
@@ -496,11 +508,138 @@
         g.map.memoryNodes=nodes;
     }
 
+    function applyStageMap(g,stage){
+        if(!g.map||g.level!==2)
+            return;
+
+        g.map.stageVariant=stage.id%6;
+        g.map.stageProps=[];
+
+        const layouts=[
+            [24,52,104,132],
+            [31,67,96,122],
+            [20,45,88,118],
+            [28,58,108,138],
+            [36,72,100,128],
+            [25,60,90,126]
+        ];
+
+        const xs=layouts[(stage.id-1)%layouts.length];
+        const height=stage.id%3===0?2:1;
+
+        for(let i=0;i<xs.length;i++){
+            const x=xs[i];
+            const y=13-(i%2&&height>1?1:0);
+
+            for(let tx=x;tx<x+2;tx++)
+                g.map.set(tx,y,2);
+
+            g.map.stageProps.push({
+                x:x*TILE+5,
+                y:y*TILE,
+                w:20,
+                h:TILE,
+                pulse:(stage.seed+i*13)%60
+            });
+        }
+
+        if(stage.id%4===0){
+            const x=118;
+            g.map.set(x,14,3);
+            g.map.set(x+1,14,3);
+            g.map.stageProps.push({
+                x:x*TILE+5,
+                y:140,
+                w:20,
+                h:10,
+                pulse:stage.seed%60
+            });
+        }
+    }
+
+    function buildStageActors(g,stage){
+        g.stageActors=[];
+
+        if(stage.id<3)
+            return;
+
+        const actorKinds=[
+            {
+                kind:"survivor",
+                name:"LUME",
+                coat:"#b9a58d",
+                scarf:"#d95c68",
+                lines:[
+                    "VOCE TAMBEM ACORDOU?",
+                    "EU ME CHAMO LUME.",
+                    "NAO CONFIE NOS FIOS."
+                ]
+            },
+            {
+                kind:"archivist",
+                name:"NARA",
+                coat:"#7788ad",
+                scarf:"#91e4ff",
+                lines:[
+                    "A CIDADE ESTA ABAIXO.",
+                    "CADA MEMORIA ABRE UMA PORTA.",
+                    "O VIGIA NAO ESQUECE."
+                ]
+            }
+        ];
+
+        const first=actorKinds[(stage.id-3)%actorKinds.length];
+        g.stageActors.push({
+            ...first,
+            x:360+((stage.seed%5)*90),
+            y:150,
+            t:stage.seed%90,
+            met:false
+        });
+
+        if(stage.id%4===0){
+            const second=actorKinds[(stage.id-2)%actorKinds.length];
+            g.stageActors.push({
+                ...second,
+                x:1040+((stage.seed%3)*70),
+                y:150,
+                t:(stage.seed+31)%90,
+                met:false
+            });
+        }
+    }
+
+    function actorAt(g){
+        for(const actor of g.stageActors||[]){
+            if(actor.met)
+                continue;
+
+            if(Math.abs(actor.x-g.player.cx)<24)
+                return actor;
+        }
+
+        return null;
+    }
+
+    function talkToActor(g,actor){
+        if(!actor)
+            return;
+
+        actor.met=true;
+        g.toastQ=[];
+        g.toastCur=null;
+        g.openDialog(actor.lines);
+        g.sound.messageBeep();
+        autoSave("npc-"+actor.name.toLowerCase());
+    }
+
     function configureStage(g){
         const stage=currentStage();
         g.chapterStage=stage;
         g.chapterGoal=stage.goal;
         g._chapterActive=true;
+        g.toastQ=[];
+        g.toastCur=null;
         g._stageToastShown=false;
         g._memoryToastShown=false;
         g._gateBlockedShown=false;
@@ -511,6 +650,8 @@
             x:g.level===1?460:690,
             y:g.level===1?142:136
         };
+        applyStageMap(g,stage);
+        buildStageActors(g,stage);
         g.wireWarden={
             active:stage.type==="warden"||stage.id>=4,
             x:stage.id%2?1170:760,
@@ -783,6 +924,81 @@
         ctx.globalAlpha=1;
     }
 
+    function drawStageProps(g){
+        if(g.state!=="game"||g.level!==2)
+            return;
+
+        for(const prop of g.map.stageProps||[]){
+            const sx=Math.round(prop.x-g.camera.x);
+
+            if(sx<-24||sx>W+24)
+                continue;
+
+            const pulse=.5+.5*Math.sin((g.t+prop.pulse)*.08);
+            ctx.globalAlpha=.45+.18*pulse;
+            ctx.fillStyle=(g.map.stageVariant%2)?"#6670ab":"#9b6c91";
+            ctx.fillRect(sx-8,prop.y-2,16,2);
+            ctx.globalAlpha=.22;
+            ctx.fillStyle="#cfe5ff";
+            ctx.fillRect(sx-5,prop.y+1,10,4);
+            ctx.globalAlpha=.7;
+            ctx.fillStyle="#283052";
+            ctx.fillRect(sx-1,prop.y-8,2,8);
+        }
+
+        ctx.globalAlpha=1;
+    }
+
+    function drawStageActors(g){
+        if(g.state!=="game"||g.level!==2)
+            return;
+
+        for(const actor of g.stageActors||[]){
+            const sx=Math.round(actor.x-g.camera.x);
+            const sy=Math.round(actor.y);
+
+            if(sx<-28||sx>W+28)
+                continue;
+
+            actor.t++;
+            const bob=Math.sin(actor.t*.08)*.6;
+            const talking=g.prompt&&g.prompt.actor===actor;
+
+            ctx.save();
+            ctx.globalAlpha=actor.met?.32:.92;
+
+            ctx.fillStyle="#141525";
+            ctx.fillRect(sx-6,sy-18+bob,12,17);
+            ctx.fillStyle=actor.coat;
+            ctx.fillRect(sx-5,sy-17+bob,10,12);
+            ctx.fillStyle="#e2d5cd";
+            ctx.fillRect(sx-4,sy-24+bob,8,7);
+            ctx.fillStyle="#1b1b2a";
+            ctx.fillRect(sx-2,sy-22+bob,2,2);
+            ctx.fillRect(sx+2,sy-22+bob,2,2);
+            ctx.fillStyle=actor.scarf;
+            ctx.fillRect(sx-5,sy-16+bob,10,2);
+            ctx.fillRect(sx+3,sy-14+bob,2,6);
+            ctx.fillStyle="#0b0b14";
+            ctx.fillRect(sx-4,sy-5+bob,3,6);
+            ctx.fillRect(sx+1,sy-5+bob,3,6);
+
+            if(talking){
+                ctx.globalAlpha=.9;
+                ctx.fillStyle="#0a0a18";
+                ctx.fillRect(sx-10,sy-35,20,9);
+                ctx.fillStyle="#9fe7ff";
+                ctx.fillRect(sx-4,sy-31,2,2);
+                ctx.fillRect(sx,sy-31,2,2);
+                ctx.fillRect(sx+4,sy-31,2,2);
+            }
+
+            ctx.restore();
+        }
+
+        ctx.globalAlpha=1;
+    }
+
     function drawCinematicBeat(g){
         if(!g._revealT||g._revealT<=0)
             return;
@@ -883,6 +1099,29 @@
         drawText("JOGUE EM PAISAGEM",W/2,139,1,"#9aa8d0","center");
         drawText("A VISAO FICA LIVRE",W/2,154,1,"#69769c","center");
         ctx.restore();
+    }
+
+    function drawBackButton(g,label){
+        const text=label||"< VOLTAR";
+        const w=72;
+        const x=8;
+        const y=158;
+
+        ctx.save();
+        ctx.globalAlpha=.72;
+        ctx.fillStyle="#17172a";
+        ctx.fillRect(x,y,w,14);
+        ctx.globalAlpha=.9;
+        ctx.strokeStyle="#7d87b1";
+        ctx.strokeRect(x+.5,y+.5,w-1,13);
+        ctx.globalAlpha=1;
+        drawText(text,x+6,y+5,1,"#c4cbed");
+        ctx.restore();
+    }
+
+    function backToMenu(g){
+        g.sound.back();
+        g.toMenu();
     }
 
     function drawChapterCard(g){
@@ -1398,6 +1637,13 @@
         ){
             collectMemory(g,g.prompt.node);
             P.act=false;
+        }else if(
+            P.act&&
+            g.prompt&&
+            g.prompt.kind==="npc"
+        ){
+            talkToActor(g,g.prompt.actor);
+            P.act=false;
         }
     }
 
@@ -1628,6 +1874,9 @@
         const originalDrawGame1=g.drawGame1;
         g.drawGame1=function(){
             originalDrawGame1.call(g);
+            drawSceneAtmosphere(g);
+            drawNPCEnhancements(g);
+            drawCinematicBeat(g);
             drawStageHUD(g);
         };
 
@@ -1635,6 +1884,11 @@
         g.drawGame2=function(){
             originalDrawGame2.call(g);
             drawMemoryNodes(g);
+            drawSceneAtmosphere(g);
+            drawNPCEnhancements(g);
+            drawStageProps(g);
+            drawStageActors(g);
+            drawCinematicBeat(g);
             drawStageHUD(g);
         };
 
@@ -1642,25 +1896,61 @@
         g.draw=function(){
             if(g.state==="chapterCard"){
                 drawChapterCard(g);
+                drawBackButton(g);
                 drawOrientationOverlay(g);
                 return;
             }
 
             if(g.state==="chapters"){
                 drawChaptersScreen(g);
+                drawBackButton(g);
                 drawOrientationOverlay(g);
                 return;
             }
 
             originalDraw.call(g);
+
+            if(
+                g.state==="settings"||
+                g.state==="director"||
+                g.state==="gameover"||
+                g.state==="escaped"||
+                g.state==="ghostIntro"
+            ){
+                drawBackButton(g);
+            }
+
             drawOrientationOverlay(g);
         };
 
         const customPointer=e=>{
+            const p=g.toXY(e);
+            const backHit=
+                p.x<=92&&
+                p.y>=154;
+
+            if(
+                backHit&&
+                (
+                    g.state==="chapters"||
+                    g.state==="chapterCard"||
+                    g.state==="settings"||
+                    g.state==="director"||
+                    g.state==="gameover"||
+                    g.state==="escaped"||
+                    g.state==="ghostIntro"
+                )
+            ){
+                e.preventDefault();
+                e.stopPropagation();
+                backToMenu(g);
+                return;
+            }
+
             if(g.state==="chapters"){
                 e.preventDefault();
                 g.sound.unlock();
-                chaptersTap(g,g.toXY(e));
+                chaptersTap(g,p);
                 return;
             }
 
@@ -1688,7 +1978,10 @@
         canvas.addEventListener(
             "pointerdown",
             customPointer,
-            {passive:false}
+            {
+                passive:false,
+                capture:true
+            }
         );
 
         const mobileGesture=()=>{
