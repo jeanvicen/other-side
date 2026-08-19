@@ -7,3 +7,6 @@ android-twa/keys/
 *.jks
 *.aab
 *.apk
+
+# Visual target used for art direction, not loaded by the game
+art/chapter1-visual-target.png

@@ -1,9 +1,10 @@
-const CACHE_NAME = "other-side-shell-v1";
+const CACHE_NAME = "other-side-shell-v4";
 const APP_SHELL = [
   "./",
   "./index.html",
   "./manifest.webmanifest",
   "./install.js",
+  "./chapter1.js?v=4",
   "./icons/favicon-32.png",
   "./icons/apple-touch-icon.png",
   "./icons/icon-192.png",
